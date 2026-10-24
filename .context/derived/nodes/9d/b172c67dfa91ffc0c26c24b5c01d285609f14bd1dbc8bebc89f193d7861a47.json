@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A new slot's duration defaults to 45 minutes.","kind":"absolute","risk":"med","derived":true,"expected_answer":{"kind":"absolute","operator":"equals","operand":45,"unit":"minutes"}}}

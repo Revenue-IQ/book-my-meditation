@@ -1,0 +1,9 @@
+anchor: ac-2
+combinatorial:
+  reason: EQP valid linked/visible/space-remaining input; state_flow valid transition to booking; timezone conversion uses UTC instant as oracle. Strength=3 (auth/data-loss risk); covering_array's eligible open combinations can be swept as parameters without assuming a concrete date or slot count. Additional dedicated timezone and multi-preceptor paths were budget-evicted.
+  strength: 2
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: EQP valid linked/visible/space-remaining input; state_flow valid transition to booking; timezone conversion uses UTC instant as oracle. Strength=3 (auth/data-loss risk); covering_array's eligible open combinations can be swept as parameters without assuming a concrete date or slot count. Additional dedicated timezone and multi-preceptor paths were budget-evicted.

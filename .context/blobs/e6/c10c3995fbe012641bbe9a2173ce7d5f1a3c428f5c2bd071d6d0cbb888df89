@@ -1,0 +1,83 @@
+# Heartfulness Sitting Booking App — Requirements
+
+Finalized: 2026-10-24.
+
+## Background and Goals
+
+Today, a preceptor messages a WhatsApp group so Abhyasis can book meditation slots (sittings), handles private back-and-forth messages about availability, blocks calendars manually, and checks every morning whether booked people are still coming — because a no-show wastes a free slot in a non-profit service.
+
+The app must:
+1. Save the preceptor's time.
+2. Remove the need to personally check on people ("hi, hello" overhead).
+3. Remove the Abhyasi's hesitation to reach out — booking is self-serve, no social friction.
+
+## Roles
+
+- **Admin**: creates preceptor accounts. That is their only job.
+- **Preceptor**: plans weekly availability, manages slots and bookings, invites Abhyasis.
+- **Abhyasi**: books visible slots from their linked preceptor(s).
+
+## Accounts and Linking
+
+- Only an admin can create a preceptor account.
+- A preceptor invites an Abhyasi (by email). Accepting the invite creates the Abhyasi account, automatically linked to that preceptor.
+- If the invited Abhyasi already has an account, the invite simply links the existing account to the additional preceptor.
+- An Abhyasi can be linked to multiple preceptors and sees slots from all of them.
+
+## Weekly Planning (Preceptor)
+
+- A preceptor adds availability slots for the week. Each slot has:
+  - A date and start time (entered with AM/PM, in the preceptor's own timezone).
+  - A duration: default 45 minutes, changeable per slot.
+  - A capacity: how many Abhyasis can book this slot (default 1; more than one allowed for group sittings).
+  - Visibility: visible to all the preceptor's linked Abhyasis (default), or restricted to specific chosen Abhyasis.
+- A preceptor can copy last week's plan into the current week, since plans rarely change.
+- A preceptor can pre-book a slot for specific Abhyasis who come regularly at the same time every week. A pre-booked Abhyasi receives the normal booking email and can cancel the booking like any other.
+- Publishing the week sends one batched announcement email per eligible Abhyasi listing all newly visible slots (not one email per slot). A single slot added later sends its own announcement.
+
+## Booking (Abhyasi)
+
+- An Abhyasi sees open slots that are visible to them, from all linked preceptors, displayed in the Abhyasi's own timezone.
+- Booking is instant — no preceptor approval required.
+- A slot can never be booked beyond its capacity, even if two people try at the same moment.
+- An Abhyasi can cancel a booking at any time; there is no cancellation cutoff. A freed spot silently reopens for others (no email blast).
+
+## Cancellation (Preceptor)
+
+- A preceptor can cancel any booking on their slots. When cancelling, they choose: keep the slot open for others, or delete the slot entirely.
+- Deleting a slot cancels all bookings on it.
+- Cancellation emails are sent (subject to email settings below).
+
+## Reminders and Attendance
+
+- A reminder email goes to the Abhyasi before the sitting — lead time is set by the preceptor (default 8 hours). No reminder goes to the preceptor.
+- The reminder contains two one-click buttons that work without logging in: "I'm coming" and "Cancel my booking".
+- The preceptor's dashboard shows each booking's status: confirmed, cancelled, or no reply — replacing the morning check-in.
+
+## Emails and Settings
+
+Email types (each independently configurable):
+1. New-slots announcement
+2. Booking confirmed (goes to both preceptor and Abhyasi)
+3. Booking cancelled (goes to the affected parties)
+4. Reminder (Abhyasi only)
+
+Rules:
+- There is no master email switch; every type is its own toggle.
+- A preceptor controls two lists: which types are **sent** for their sittings, and which types they personally **receive**.
+- An Abhyasi controls which types they **receive**.
+- The send gate wins: an email goes out only if the preceptor has that type enabled for sending AND the recipient has it enabled for receiving.
+- All toggles default to ON.
+- Preceptor settings also include the reminder lead time in hours (default 8).
+
+## Timezones
+
+- All times are stored in UTC.
+- A preceptor enters slot times in their own timezone; every user sees times in their own timezone.
+
+## Out of Scope (for now)
+
+- Sitting mode/location (in person vs online), cancellation windows, waitlist notifications.
+- Calendar sync (Google Calendar block/unblock) — future.
+- Mobile apps — future (API designed to support them).
+- Analytics pages and mood check-in — being designed separately; will be added later.

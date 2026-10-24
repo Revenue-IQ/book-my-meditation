@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Publishing a week sends each eligible Abhyasi one new-slots announcement email for that publication.","kind":"count","risk":"med","derived":true,"expected_answer":{"kind":"count","operator":"equals","operand":1,"unit":"email per eligible Abhyasi per publication"}}}

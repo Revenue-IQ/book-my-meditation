@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"Every slot shown to an Abhyasi is open and visible to that Abhyasi.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"forall","operand":"displayed slots have remaining capacity and are visible to the Abhyasi","baseline":null}}}

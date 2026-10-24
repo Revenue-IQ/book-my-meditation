@@ -1,0 +1,9 @@
+anchor: sha256:29d3eda1515f3c2b943fa33b3ca7939c26ed01e58de981fd8d0af5729d7d6cd7
+combinatorial:
+  reason: risk-judged, but no numerical cross-inputs apply. No evidence specifies duplicate-copy behavior or empty prior week, so neither is asserted.
+  strength: 3
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: State-flow/CRUD copying and temporal week shift; strength=3 risk-judged, but no numerical cross-inputs apply. No evidence specifies duplicate-copy behavior or empty prior week, so neither is asserted.

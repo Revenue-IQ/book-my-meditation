@@ -1,0 +1,19 @@
+{
+  "commit_id": "d12714f9-d3d4-4a24-af6c-d528acf2d1f1",
+  "test_id": "d4027866-4661-480c-bd2b-5e9ffbbfd486",
+  "testcase_id": "01M5QZNJ8M318PM8T32PEDT7YD",
+  "project_id": "01M5QWE65A5R2K00ATR34FJ2RN",
+  "folder_id": "01M5QWE6FFRM57B2S8Y3AXHAG5",
+  "org_id": "3399331",
+  "session_name": "publish-a-weekly-slot-with-default-settings",
+  "executions": [
+    {
+      "execution_id": "5786c2f5-f915-450e-ae9d-3355bb188c07",
+      "run_kind": "author",
+      "status": "passed",
+      "valid": true,
+      "uploaded": true,
+      "at": "2026-10-24T23:45:48.404Z"
+    }
+  ]
+}

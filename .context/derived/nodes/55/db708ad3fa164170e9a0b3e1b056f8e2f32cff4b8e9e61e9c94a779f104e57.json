@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"For every slot, confirmed bookings never exceed that slot's capacity, including concurrent booking attempts.","kind":"count","risk":"med","derived":true,"expected_answer":{"kind":"count","operator":"lte","operand":{"derived":"capacity configured for the same slot"},"baseline":null}}}

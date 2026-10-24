@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A slot already at capacity is absent from the Abhyasi's open-slot view.","kind":"forbidden-presence","risk":"med","derived":true,"expected_answer":{"kind":"forbidden-presence","operator":"exists","operand":"the known full slot in the Abhyasi's open-slot view","baseline":null}}}

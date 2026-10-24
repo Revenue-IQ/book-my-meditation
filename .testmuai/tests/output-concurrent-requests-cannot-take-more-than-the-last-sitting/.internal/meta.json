@@ -1,0 +1,25 @@
+{
+  "test_id": "cce480ec-e609-41be-889b-451ab34c20bf",
+  "project_id": "01M5QWE65A5R2K00ATR34FJ2RN",
+  "folder_id": "01M5QWE6FFRM57B2S8Y3AXHAG5",
+  "org_id": "3399331",
+  "session_name": "concurrent-requests-cannot-take-more-than-the-last-sitting",
+  "commit_id": "62073fc1-acfe-438a-a3b5-891c4dcdf2e8",
+  "testcase_id": "01M5R4D5FHY69DRBSHZ0NS8KD8",
+  "executions": [
+    {
+      "execution_id": "984b909f-1a2e-4e8a-8e5c-ef55671aada3",
+      "run_kind": "author",
+      "status": "passed",
+      "valid": true,
+      "at": "2026-10-24T23:41:08.007Z"
+    },
+    {
+      "execution_id": "3aa799f9-9798-4dc1-b3cd-1cc99f5c2793",
+      "run_kind": "author",
+      "status": "passed",
+      "at": "2026-10-24T23:41:20.103Z",
+      "uploaded": true
+    }
+  ]
+}

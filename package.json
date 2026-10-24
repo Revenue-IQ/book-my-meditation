@@ -1,0 +1,14 @@
+{
+  "name": "heartfulness-sitting",
+  "private": true,
+  "workspaces": ["api", "web"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w api\" \"npm run dev -w web\"",
+    "db:generate": "npm run db:generate -w api",
+    "db:migrate": "npm run db:migrate -w api",
+    "db:seed": "npm run db:seed -w api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

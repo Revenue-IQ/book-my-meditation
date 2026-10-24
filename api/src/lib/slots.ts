@@ -1,0 +1,192 @@
+// Slot business logic. No HTTP, no auth imports — testable on its own.
+import { and, asc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { db } from '../db/client.js';
+import {
+  bookings,
+  preceptorAbhyasiLinks,
+  preceptorPref,
+  slots,
+  slotVisibility,
+  users,
+} from '../db/schema.js';
+import { AppError } from './errors.js';
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function listLinkedAbhyasis(preceptorId: string) {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(preceptorAbhyasiLinks)
+    .innerJoin(users, eq(users.id, preceptorAbhyasiLinks.abhyasiId))
+    .where(eq(preceptorAbhyasiLinks.preceptorId, preceptorId))
+    .orderBy(asc(users.name));
+}
+
+/**
+ * "I'm coming?" is only a meaningful question close to the sitting, so the UI
+ * gates the confirm flow on this window (the preceptor's reminder lead time).
+ */
+async function reminderLeadMs(preceptorId: string) {
+  const [pref] = await db.select().from(preceptorPref).where(eq(preceptorPref.preceptorId, preceptorId));
+  return (pref?.reminderLeadHours ?? 8) * 3600000;
+}
+
+/** A preceptor's slots in [weekStart, weekStart+7d), each with its bookings and visibility list. */
+export async function listWeek(preceptorId: string, weekStart: Date) {
+  const weekEnd = new Date(weekStart.getTime() + WEEK_MS);
+  const leadMs = await reminderLeadMs(preceptorId);
+  const slotRows = await db
+    .select()
+    .from(slots)
+    .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, weekStart), lt(slots.startAt, weekEnd)))
+    .orderBy(asc(slots.startAt));
+
+  const slotIds = slotRows.map((s) => s.id);
+  const bookingRows = slotIds.length
+    ? await db
+        .select({
+          id: bookings.id,
+          slotId: bookings.slotId,
+          status: bookings.status,
+          cancelledBy: bookings.cancelledBy,
+          abhyasiId: bookings.abhyasiId,
+          abhyasiName: users.name,
+        })
+        .from(bookings)
+        .innerJoin(users, eq(users.id, bookings.abhyasiId))
+        .where(inArray(bookings.slotId, slotIds))
+    : [];
+  const visibilityRows = slotIds.length
+    ? await db
+        .select({ slotId: slotVisibility.slotId, abhyasiId: slotVisibility.abhyasiId, name: users.name })
+        .from(slotVisibility)
+        .innerJoin(users, eq(users.id, slotVisibility.abhyasiId))
+        .where(inArray(slotVisibility.slotId, slotIds))
+    : [];
+
+  return slotRows.map((s) => ({
+    ...s,
+    confirmWindowOpen: s.startAt.getTime() - Date.now() <= leadMs,
+    ended: slotEnded(s),
+    bookings: bookingRows.filter((b) => b.slotId === s.id),
+    visibleTo: visibilityRows.filter((v) => v.slotId === s.id).map((v) => ({ id: v.abhyasiId, name: v.name })),
+  }));
+}
+
+export async function createSlot(input: {
+  preceptorId: string;
+  startAt: Date;
+  durationMinutes: number;
+  capacity: number;
+  visibleTo: 'all' | string[];
+}) {
+  if (Number.isNaN(input.startAt.getTime())) throw new AppError('Invalid start time');
+  if (input.startAt.getTime() <= Date.now()) throw new AppError('Slot must be in the future');
+  if (input.durationMinutes < 5 || input.durationMinutes > 240) throw new AppError('Duration must be 5–240 minutes');
+  if (input.capacity < 1 || input.capacity > 50) throw new AppError('Capacity must be 1–50');
+
+  if (input.visibleTo !== 'all') {
+    if (input.visibleTo.length === 0) throw new AppError('Pick at least one abhyasi for a restricted slot');
+    const linked = await listLinkedAbhyasis(input.preceptorId);
+    const linkedIds = new Set(linked.map((a) => a.id));
+    if (!input.visibleTo.every((id) => linkedIds.has(id)))
+      throw new AppError('Restricted slots can only include your linked abhyasis');
+  }
+
+  return db.transaction(async (tx) => {
+    const [slot] = await tx
+      .insert(slots)
+      .values({
+        preceptorId: input.preceptorId,
+        startAt: input.startAt,
+        durationMinutes: input.durationMinutes,
+        capacity: input.capacity,
+        visibility: input.visibleTo === 'all' ? 'all' : 'restricted',
+        insertedBy: input.preceptorId,
+      })
+      .returning();
+    if (input.visibleTo !== 'all') {
+      await tx.insert(slotVisibility).values(
+        input.visibleTo.map((abhyasiId) => ({ slotId: slot.id, abhyasiId, insertedBy: input.preceptorId })),
+      );
+    }
+    return slot;
+  });
+}
+
+export function slotEnded(slot: { startAt: Date; durationMinutes: number }, now = Date.now()) {
+  return slot.startAt.getTime() + slot.durationMinutes * 60000 <= now;
+}
+
+/**
+ * A slot that has ended and still has (non-cancelled) bookings is history: the
+ * "My Abhyasis" page reads those sittings, so it cannot be deleted. Future slots and
+ * empty past slots can go.
+ */
+export async function assertSlotDeletable(slot: { id: string; startAt: Date; durationMinutes: number }) {
+  if (!slotEnded(slot)) return;
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(bookings)
+    .where(and(eq(bookings.slotId, slot.id), ne(bookings.status, 'cancelled')));
+  if (n > 0) throw new AppError('This sitting already happened and has bookings, so it is kept as history and cannot be deleted', 409);
+}
+
+export async function deleteSlot(slotId: string, preceptorId: string) {
+  const [slot] = await db
+    .select()
+    .from(slots)
+    .where(and(eq(slots.id, slotId), eq(slots.preceptorId, preceptorId)));
+  if (!slot) throw new AppError('Slot not found', 404);
+  await assertSlotDeletable(slot);
+  await db.delete(slots).where(eq(slots.id, slotId)); // bookings & visibility cascade
+}
+
+/** Copy last week's slots (relative to weekStart) into this week. Skips exact duplicates. Bookings are not copied. */
+export async function copyLastWeek(preceptorId: string, weekStart: Date) {
+  const prevStart = new Date(weekStart.getTime() - WEEK_MS);
+  const prevSlots = await db
+    .select()
+    .from(slots)
+    .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, prevStart), lt(slots.startAt, weekStart)));
+  if (prevSlots.length === 0) return { copied: 0 };
+
+  const existing = await db
+    .select({ startAt: slots.startAt })
+    .from(slots)
+    .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, weekStart), lt(slots.startAt, new Date(weekStart.getTime() + WEEK_MS))));
+  const taken = new Set(existing.map((s) => s.startAt.getTime()));
+
+  let copied = 0;
+  await db.transaction(async (tx) => {
+    for (const src of prevSlots) {
+      // +7 days by calendar, not by milliseconds: keeps 7:00 AM at 7:00 AM across
+      // daylight-saving changes. Uses the server's timezone, which in local dev is
+      // the preceptor's own; the cloud deployment revisits this with a stored
+      // preceptor timezone (planned for Phase 5).
+      const s = src.startAt;
+      const newStart = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 7, s.getHours(), s.getMinutes());
+      if (newStart.getTime() <= Date.now() || taken.has(newStart.getTime())) continue;
+      const [slot] = await tx
+        .insert(slots)
+        .values({
+          preceptorId,
+          startAt: newStart,
+          durationMinutes: src.durationMinutes,
+          capacity: src.capacity,
+          visibility: src.visibility,
+          insertedBy: preceptorId,
+        })
+        .returning();
+      if (src.visibility === 'restricted') {
+        const vis = await tx.select().from(slotVisibility).where(eq(slotVisibility.slotId, src.id));
+        if (vis.length)
+          await tx.insert(slotVisibility).values(
+            vis.map((v) => ({ slotId: slot.id, abhyasiId: v.abhyasiId, insertedBy: preceptorId })),
+          );
+      }
+      copied++;
+    }
+  });
+  return { copied };
+}

@@ -1,0 +1,437 @@
+{
+  "version": 1,
+  "read_basis": "sha256:060fb24c7691764a6c0c18d588d401ebf954c214d4ebd61e6fc00d680ee13ae5",
+  "source": {
+    "source_id": "requirements",
+    "source_cid": "sha256:84a79cb385f95c0265b650dbab9fdd539589fc5997557b0cde46e9e0c04ba181"
+  },
+  "use_cases": [
+    {
+      "temp_ref": "n1",
+      "title": "Create a preceptor account",
+      "description": "An admin creates a preceptor account so that the preceptor can use the service, with account creation reserved exclusively to admins and no other admin responsibility specified.",
+      "summary": "Admin provisions preceptors.",
+      "actors": [
+        "admin"
+      ],
+      "value": "Controls access to the preceptor role.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L22-L22",
+        "quote": "Only an admin can create a preceptor account."
+      },
+      "criteria": [
+        {
+          "text": "Only an admin can create preceptor accounts.",
+          "cite": {
+            "anchor": "L22-L22",
+            "quote": "Only an admin can create a preceptor account."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n2",
+      "title": "Invite and link an Abhyasi",
+      "description": "A preceptor invites an Abhyasi by email so accepting the invitation creates an account automatically linked to that preceptor or links an existing account to an additional preceptor, allowing the Abhyasi to be linked to multiple preceptors.",
+      "summary": "Invite new or existing Abhyasis into a preceptor relationship.",
+      "actors": [
+        "preceptor",
+        "invited Abhyasi"
+      ],
+      "value": "Enables controlled access to each preceptor's sittings without duplicating existing accounts.",
+      "risk": "high",
+      "cite": {
+        "anchor": "L23-L25",
+        "quote": "A preceptor invites an Abhyasi (by email). Accepting the invite creates the Abhyasi account, automatically linked to that preceptor."
+      },
+      "cites": [
+        {
+          "anchor": "L23-L25",
+          "quote": "A preceptor invites an Abhyasi (by email). Accepting the invite creates the Abhyasi account, automatically linked to that preceptor."
+        },
+        {
+          "anchor": "L24-L25",
+          "quote": "If the invited Abhyasi already has an account, the invite simply links the existing account to the additional preceptor."
+        }
+      ],
+      "criteria": [
+        {
+          "text": "Accepting an email invitation creates and links a new Abhyasi account, or links an existing account to the additional preceptor without recreating it.",
+          "cite": {
+            "anchor": "L23-L24",
+            "quote": "If the invited Abhyasi already has an account, the invite simply links the existing account to the additional preceptor."
+          }
+        },
+        {
+          "text": "An Abhyasi may be linked to multiple preceptors and see slots from all of them.",
+          "cite": {
+            "anchor": "L25-L25",
+            "quote": "An Abhyasi can be linked to multiple preceptors and sees slots from all of them."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n3",
+      "title": "Plan and publish sitting availability",
+      "description": "A preceptor creates weekly sitting slots with date and AM/PM start time in their own timezone, adjustable duration and capacity, and either all-linked or selected-Abhyasi visibility, can copy last week's plan or add a later slot, and publishes availability with batched announcements for newly visible slots; the owner clarified that duration must be 5–240 minutes and capacity 1–50, with out-of-range values rejected by a validation error.",
+      "summary": "Schedule and announce weekly sitting slots.",
+      "actors": [
+        "preceptor"
+      ],
+      "value": "Replaces manual calendar coordination and announces available sittings efficiently.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L29-L36",
+        "quote": "A preceptor adds availability slots for the week."
+      },
+      "cites": [
+        {
+          "anchor": "L29-L36",
+          "quote": "A preceptor adds availability slots for the week."
+        },
+        {
+          "anchor": "L34-L36",
+          "quote": "A preceptor can copy last week's plan into the current week, since plans rarely change."
+        }
+      ],
+      "criteria": [
+        {
+          "text": "Slot dates and AM/PM start times are entered in the preceptor's own timezone; times are stored in UTC.",
+          "cite": {
+            "anchor": "L30-L30",
+            "quote": "A date and start time (entered with AM/PM, in the preceptor's own timezone)."
+          }
+        },
+        {
+          "text": "Slot duration defaults to 45 minutes and is changeable per slot.",
+          "cite": {
+            "anchor": "L31-L31",
+            "quote": "A duration: default 45 minutes, changeable per slot."
+          }
+        },
+        {
+          "text": "Slot capacity defaults to 1 and may exceed 1 for group sittings.",
+          "cite": {
+            "anchor": "L32-L32",
+            "quote": "A capacity: how many Abhyasis can book this slot (default 1; more than one allowed for group sittings)."
+          }
+        },
+        {
+          "text": "Visibility defaults to all linked Abhyasis, or can be restricted to specifically chosen Abhyasis.",
+          "cite": {
+            "anchor": "L33-L33",
+            "quote": "Visibility: visible to all the preceptor's linked Abhyasis (default), or restricted to specific chosen Abhyasis."
+          }
+        },
+        {
+          "text": "The preceptor can copy the previous week's plan into the current week.",
+          "cite": {
+            "anchor": "L34-L34",
+            "quote": "A preceptor can copy last week's plan into the current week, since plans rarely change."
+          }
+        },
+        {
+          "text": "Publishing sends one batched email per eligible Abhyasi listing all newly visible slots, while a single slot added later sends its own announcement.",
+          "cite": {
+            "anchor": "L36-L36",
+            "quote": "Publishing the week sends one batched announcement email per eligible Abhyasi listing all newly visible slots (not one email per slot). A single slot added later sends its own announcement."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    },
+    {
+      "temp_ref": "n4",
+      "title": "Pre-book regular Abhyasis",
+      "description": "A preceptor books specific Abhyasis into a slot in advance for recurring weekly sittings, with each pre-booked Abhyasi receiving the normal booking email and retaining the same cancellation ability as with a self-service booking.",
+      "summary": "Reserve regular attendees' sitting places.",
+      "actors": [
+        "preceptor"
+      ],
+      "value": "Reduces repetitive weekly booking work while preserving attendee control.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L35-L35",
+        "quote": "A preceptor can pre-book a slot for specific Abhyasis who come regularly at the same time every week. A pre-booked Abhyasi receives the normal booking email and can cancel the booking like any other."
+      },
+      "criteria": [
+        {
+          "text": "A pre-booked Abhyasi receives the normal booking email and can cancel the booking like any other.",
+          "cite": {
+            "anchor": "L35-L35",
+            "quote": "A pre-booked Abhyasi receives the normal booking email and can cancel the booking like any other."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n3"
+      ]
+    },
+    {
+      "temp_ref": "n5",
+      "title": "Book a visible sitting",
+      "description": "An Abhyasi browses open slots visible to them across all linked preceptors in their own timezone and instantly books a place without preceptor approval, while concurrent requests cannot take occupancy beyond slot capacity.",
+      "summary": "Self-book available sittings across linked preceptors.",
+      "actors": [
+        "Abhyasi"
+      ],
+      "value": "Provides self-service access to sittings without private coordination or overbooking.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L40-L42",
+        "quote": "An Abhyasi sees open slots that are visible to them, from all linked preceptors, displayed in the Abhyasi's own timezone."
+      },
+      "cites": [
+        {
+          "anchor": "L40-L42",
+          "quote": "An Abhyasi sees open slots that are visible to them, from all linked preceptors, displayed in the Abhyasi's own timezone."
+        },
+        {
+          "anchor": "L41-L42",
+          "quote": "Booking is instant — no preceptor approval required."
+        }
+      ],
+      "criteria": [
+        {
+          "text": "Only open slots visible to the Abhyasi across all linked preceptors are shown, in the Abhyasi's own timezone.",
+          "cite": {
+            "anchor": "L40-L40",
+            "quote": "An Abhyasi sees open slots that are visible to them, from all linked preceptors, displayed in the Abhyasi's own timezone."
+          }
+        },
+        {
+          "text": "Booking is instant without preceptor approval.",
+          "cite": {
+            "anchor": "L41-L41",
+            "quote": "Booking is instant — no preceptor approval required."
+          }
+        },
+        {
+          "text": "Concurrent attempts cannot book a slot beyond its capacity.",
+          "cite": {
+            "anchor": "L42-L42",
+            "quote": "A slot can never be booked beyond its capacity, even if two people try at the same moment."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n2",
+        "n3"
+      ]
+    },
+    {
+      "temp_ref": "n6",
+      "title": "Cancel my sitting booking",
+      "description": "An Abhyasi cancels their booking at any time without a cutoff, either through the booking flow or through the reminder's one-click button without logging in, reopening the freed place silently for others without an announcement blast.",
+      "summary": "Give up a booked sitting and free the spot.",
+      "actors": [
+        "Abhyasi"
+      ],
+      "value": "Keeps scarce nonprofit sitting places available when plans change.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L43-L43",
+        "quote": "An Abhyasi can cancel a booking at any time; there is no cancellation cutoff. A freed spot silently reopens for others (no email blast)."
+      },
+      "cites": [
+        {
+          "anchor": "L43-L43",
+          "quote": "An Abhyasi can cancel a booking at any time; there is no cancellation cutoff. A freed spot silently reopens for others (no email blast)."
+        },
+        {
+          "anchor": "L54-L54",
+          "quote": "The reminder contains two one-click buttons that work without logging in: \"I'm coming\" and \"Cancel my booking\"."
+        }
+      ],
+      "criteria": [
+        {
+          "text": "Cancellation has no cutoff; a freed spot silently reopens for others with no announcement email blast.",
+          "cite": {
+            "anchor": "L43-L43",
+            "quote": "An Abhyasi can cancel a booking at any time; there is no cancellation cutoff. A freed spot silently reopens for others (no email blast)."
+          }
+        },
+        {
+          "text": "The reminder offers one-click 'Cancel my booking' without logging in.",
+          "cite": {
+            "anchor": "L54-L54",
+            "quote": "The reminder contains two one-click buttons that work without logging in: \"I'm coming\" and \"Cancel my booking\"."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n5"
+      ]
+    },
+    {
+      "temp_ref": "n7",
+      "title": "Cancel a booking or sitting slot",
+      "description": "A preceptor cancels any booking on their own slots and chooses whether to keep the slot open to others or delete it entirely, with deletion cancelling all bookings on the slot and cancellation emails subject to the configured email gates.",
+      "summary": "Manage preceptor-initiated cancellations and slot deletion.",
+      "actors": [
+        "preceptor"
+      ],
+      "value": "Lets the preceptor release an individual place or withdraw a sitting altogether.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L47-L49",
+        "quote": "A preceptor can cancel any booking on their slots. When cancelling, they choose: keep the slot open for others, or delete the slot entirely."
+      },
+      "criteria": [
+        {
+          "text": "On cancelling a booking, the preceptor chooses to keep the slot open for others or delete it entirely.",
+          "cite": {
+            "anchor": "L47-L47",
+            "quote": "A preceptor can cancel any booking on their slots. When cancelling, they choose: keep the slot open for others, or delete the slot entirely."
+          }
+        },
+        {
+          "text": "Deleting a slot cancels every booking on it.",
+          "cite": {
+            "anchor": "L48-L48",
+            "quote": "Deleting a slot cancels all bookings on it."
+          }
+        },
+        {
+          "text": "Cancellation emails are sent subject to email settings.",
+          "cite": {
+            "anchor": "L49-L49",
+            "quote": "Cancellation emails are sent (subject to email settings below)."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n3"
+      ]
+    },
+    {
+      "temp_ref": "n8",
+      "title": "Confirm attendance for a sitting",
+      "description": "An Abhyasi receives a pre-sitting reminder at the preceptor-configured lead time and can respond with the one-click \"I'm coming\" action without logging in, making their attendance response visible to the preceptor; the owner clarified that this response, rather than the original booking, establishes confirmed status.",
+      "summary": "Respond to a reminder with an attendance confirmation.",
+      "actors": [
+        "Abhyasi"
+      ],
+      "value": "Replaces personal morning check-in messages with a low-friction attendance signal.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L53-L55",
+        "quote": "The reminder contains two one-click buttons that work without logging in: \"I'm coming\" and \"Cancel my booking\"."
+      },
+      "criteria": [
+        {
+          "text": "The Abhyasi gets a reminder before the sitting at the preceptor-set lead time (default 8 hours); the preceptor gets no reminder.",
+          "cite": {
+            "anchor": "L53-L53",
+            "quote": "A reminder email goes to the Abhyasi before the sitting — lead time is set by the preceptor (default 8 hours). No reminder goes to the preceptor."
+          }
+        },
+        {
+          "text": "The reminder includes one-click 'I'm coming' and 'Cancel my booking' actions that do not require logging in.",
+          "cite": {
+            "anchor": "L54-L54",
+            "quote": "The reminder contains two one-click buttons that work without logging in: \"I'm coming\" and \"Cancel my booking\"."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n5"
+      ]
+    },
+    {
+      "temp_ref": "n9",
+      "title": "Monitor booking attendance responses",
+      "description": "A preceptor reviews each booking on their dashboard as confirmed, cancelled, or no reply in place of checking in personally; the owner clarified that confirmed requires the Abhyasi's \"I'm coming\" response and no reply applies before that response even before a reminder is sent or when reminders are disabled.",
+      "summary": "See which attendees have responded or cancelled.",
+      "actors": [
+        "preceptor"
+      ],
+      "value": "Saves manual follow-up time and shows which booked places may go unused.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L55-L55",
+        "quote": "The preceptor's dashboard shows each booking's status: confirmed, cancelled, or no reply — replacing the morning check-in."
+      },
+      "criteria": [
+        {
+          "text": "The dashboard displays each booking as confirmed, cancelled, or no reply.",
+          "cite": {
+            "anchor": "L55-L55",
+            "quote": "The preceptor's dashboard shows each booking's status: confirmed, cancelled, or no reply — replacing the morning check-in."
+          }
+        }
+      ],
+      "depends_on_hint": [
+        "n5"
+      ]
+    },
+    {
+      "temp_ref": "n10",
+      "title": "Configure sitting email preferences",
+      "description": "A preceptor independently controls which of the four email types are sent for their sittings and which they personally receive, sets reminder lead time in hours, and an Abhyasi controls which types they receive, with every toggle on by default and delivery requiring both the preceptor's send toggle and the recipient's receive toggle; the owner clarified that negative reminder lead times are rejected and zero is allowed.",
+      "summary": "Control sitting email delivery and reminder timing.",
+      "actors": [
+        "preceptor",
+        "Abhyasi"
+      ],
+      "value": "Respects individual notification preferences while preserving preceptor control over outgoing messages.",
+      "risk": "med",
+      "cite": {
+        "anchor": "L59-L71",
+        "quote": "A preceptor controls two lists: which types are **sent** for their sittings, and which types they personally **receive**."
+      },
+      "cites": [
+        {
+          "anchor": "L59-L71",
+          "quote": "A preceptor controls two lists: which types are **sent** for their sittings, and which types they personally **receive**."
+        },
+        {
+          "anchor": "L68-L71",
+          "quote": "An Abhyasi controls which types they **receive**."
+        }
+      ],
+      "criteria": [
+        {
+          "text": "The four independently configurable email types are new-slots announcement, booking confirmed, booking cancelled, and reminder; booking confirmations go to both parties, cancellations to affected parties, and reminders only to Abhyasis.",
+          "cite": {
+            "anchor": "L59-L63",
+            "quote": "Email types (each independently configurable):\n1. New-slots announcement\n2. Booking confirmed (goes to both preceptor and Abhyasi)\n3. Booking cancelled (goes to the affected parties)\n4. Reminder (Abhyasi only)"
+          }
+        },
+        {
+          "text": "There is no master switch; preceptors control separate sent and personally received lists while Abhyasis control received types.",
+          "cite": {
+            "anchor": "L66-L68",
+            "quote": "There is no master email switch; every type is its own toggle."
+          }
+        },
+        {
+          "text": "Delivery requires both the preceptor's send gate and the recipient's receive setting for that type.",
+          "cite": {
+            "anchor": "L69-L69",
+            "quote": "The send gate wins: an email goes out only if the preceptor has that type enabled for sending AND the recipient has it enabled for receiving."
+          }
+        },
+        {
+          "text": "All email toggles default to ON.",
+          "cite": {
+            "anchor": "L70-L70",
+            "quote": "All toggles default to ON."
+          }
+        },
+        {
+          "text": "The preceptor sets reminder lead time in hours, defaulting to 8.",
+          "cite": {
+            "anchor": "L71-L71",
+            "quote": "Preceptor settings also include the reminder lead time in hours (default 8)."
+          }
+        }
+      ],
+      "depends_on_hint": []
+    }
+  ]
+}

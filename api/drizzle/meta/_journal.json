@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792874212812,
+      "tag": "0000_warm_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792881309379,
+      "tag": "0001_my_abhyasis_prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792884259431,
+      "tag": "0002_checkins",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+anchor: ac-1
+combinatorial:
+  reason: ; covering_array produced all eight link × visibility × occupancy triples, but the four-pair ceiling prioritizes distinct outcomes rather than eight redundant executions. No API endpoint or synchronization mechanism is specified.
+  strength: 3
+deferred_bindings: 1
+expected_how: 'expected_mode: runtime-derived'
+profile_family: unspecified
+surface_state: absent
+technique: 'Concurrency, state_flow, idempotency-risk assessment: same slot contention, not speculative retry semantics. EQP: capacity 1/default versus capacity greater than 1; numeric default is not a stated boundary so BVA is inapplicable. auth/data-loss risk requests strength=3; covering_array produced all eight link × visibility × occupancy triples, but the four-pair ceiling prioritizes distinct outcomes rather than eight redundant executions. No API endpoint or synchronization mechanism is specified.'

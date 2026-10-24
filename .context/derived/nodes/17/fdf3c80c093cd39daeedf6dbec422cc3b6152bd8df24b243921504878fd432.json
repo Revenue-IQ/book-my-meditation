@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A published week's announcement lists every newly visible slot eligible for that recipient.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"forall","operand":"newly visible slots eligible for the recipient are listed in that recipient's announcement"}}}

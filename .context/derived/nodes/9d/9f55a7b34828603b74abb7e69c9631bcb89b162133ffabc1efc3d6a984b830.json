@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A single slot added later sends its own announcement to its eligible recipients.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"exists","operand":"separate announcement for a single slot added later to each eligible recipient"}}}

@@ -1,0 +1,19 @@
+{
+  "commit_id": "46b16325-47dc-4aad-8099-c363b369b281",
+  "test_id": "20987eff-8b86-4853-9889-415b438e043e",
+  "testcase_id": "01M5QZW33XWGVRAY2MJ8HSV58E",
+  "project_id": "01M5QWE65A5R2K00ATR34FJ2RN",
+  "folder_id": "01M5QWE6FFRM57B2S8Y3AXHAG5",
+  "org_id": "3399331",
+  "session_name": "show-validation-errors-for-out-of-range-slot-values",
+  "executions": [
+    {
+      "execution_id": "5786c2f5-f915-450e-ae9d-3355bb188c07",
+      "run_kind": "author",
+      "status": "passed",
+      "valid": true,
+      "uploaded": true,
+      "at": "2026-10-24T23:45:48.406Z"
+    }
+  ]
+}

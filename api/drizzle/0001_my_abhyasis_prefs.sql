@@ -1,0 +1,2 @@
+ALTER TABLE "heartfulness_sitting"."preceptor_pref" ADD COLUMN "history_weeks" integer DEFAULT 8 NOT NULL;--> statement-breakpoint
+ALTER TABLE "heartfulness_sitting"."preceptor_pref" ADD COLUMN "not_seen_weeks" integer DEFAULT 3 NOT NULL;

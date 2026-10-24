@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A slot restricted to chosen Abhyasis is visible only to those chosen Abhyasis.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"forall","operand":"viewers of a restricted slot are among its chosen Abhyasis"}}}

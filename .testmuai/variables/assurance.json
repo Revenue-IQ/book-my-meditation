@@ -1,0 +1,87 @@
+{
+  "start_url": {
+    "value": "http://localhost:5178",
+    "secret": false,
+    "description": "The actual browser start URL for the Heartfulness Sitting Booking App."
+  },
+  "abhyasi_a_login": {
+    "value": "Chetan — pick 'Chetan — abhyasi' in the top-right 'Acting as' selector (this local build has no login form)",
+    "secret": false,
+    "description": "Login for a seeded Abhyasi linked to the fixture's preceptors and eligible to book the test sittings."
+  },
+  "abhyasi_a_password": {
+    "value": "no password — the local app signs in via the 'Acting as' selector, there is no password field",
+    "secret": true,
+    "description": "Password for the first seeded Abhyasi."
+  },
+  "abhyasi_b_login": {
+    "value": "Arjun — pick 'Arjun — abhyasi' in the top-right 'Acting as' selector (this local build has no login form)",
+    "secret": false,
+    "description": "Login for a different seeded Abhyasi eligible for the contested sitting."
+  },
+  "abhyasi_b_password": {
+    "value": "no password — the local app signs in via the 'Acting as' selector, there is no password field",
+    "secret": true,
+    "description": "Password for the second seeded Abhyasi."
+  },
+  "race_slot": {
+    "value": "Prakash's sitting on Sunday Oct 25 at 9:00 PM, capacity 1, currently unbooked (the only place)",
+    "secret": false,
+    "description": "Identifiable, fresh slot with exactly one place remaining, visible to both seeded Abhyasis; supply a new fixture before re-running."
+  },
+  "linked_slot_a": {
+    "value": "Prakash's sitting on Monday Oct 26 at 7:00 AM (45 min, capacity 2, 1 of 2 places taken)",
+    "secret": false,
+    "description": "Open identifiable slot from the first linked preceptor, visible to Abhyasi A and not previously booked by A."
+  },
+  "linked_slot_b": {
+    "value": "Priya's sitting on Sunday Oct 25 at 7:00 PM (45 min)",
+    "secret": false,
+    "description": "Open identifiable slot from another linked preceptor visible to Abhyasi A."
+  },
+  "linked_slot_a_utc": {
+    "value": "2026-10-26T14:00:00Z",
+    "secret": false,
+    "description": "Independently recorded UTC instant for linked_slot_a, not derived from the displayed time."
+  },
+  "abhyasi_timezone": {
+    "value": "America/Los_Angeles (the browser's local timezone; the app renders all times in the viewer's local timezone)",
+    "secret": false,
+    "description": "Configured timezone for seeded Abhyasi A, different from the preceptor's timezone for conversion coverage."
+  },
+  "accessible_slot": {
+    "value": "Priya's sitting on Tuesday Oct 27 at 8:00 AM (60 min)",
+    "secret": false,
+    "description": "Identifiable open control slot visible to Abhyasi A."
+  },
+  "other_abhyasi_slot": {
+    "value": "Prakash's restricted sitting on Monday Oct 26 at 6:30 PM (visible only to Arjun and Bhavna, not to Chetan)",
+    "secret": false,
+    "description": "Identifiable open slot of a linked preceptor restricted to another Abhyasi, not Abhyasi A."
+  },
+  "unlinked_slot": {
+    "value": "Ravi's sitting on Sunday Oct 25 at 10:00 AM (Ravi is a preceptor with no linked Abhyasis)",
+    "secret": false,
+    "description": "Identifiable open slot of a preceptor not linked to Abhyasi A."
+  },
+  "full_slot": {
+    "value": "Prakash's sitting on Sunday Oct 25 at 7:00 AM, capacity 1, already booked by Arjun (full)",
+    "secret": false,
+    "description": "Identifiable slot visible to Abhyasi A by access rules but already booked to configured capacity."
+  },
+  "preceptor_login": {
+    "value": "Prakash — pick 'Prakash — preceptor' in the top-right 'Acting as' selector (this local build has no login form)",
+    "secret": false,
+    "description": "Test preceptor login for managing weekly sitting availability."
+  },
+  "preceptor_password": {
+    "value": "no password — the local app signs in via the 'Acting as' selector, there is no password field",
+    "secret": true,
+    "description": "Password for the test preceptor account."
+  },
+  "previous_week_plan": {
+    "value": "last week's plan for Prakash: Saturday Oct 17 at 10:00 PM (45 min) and Sunday Oct 18 at 11:30 AM (30 min)",
+    "secret": false,
+    "description": "Identifier or description of a seeded prior-week plan with a known sitting slot for the preceptor account."
+  }
+}

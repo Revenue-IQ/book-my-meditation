@@ -1,0 +1,26 @@
+{
+  "commit_id": "39a07570-3992-4944-8033-48a4c7bda534",
+  "test_id": "85e90bad-6a80-4bad-9525-5d01c300d034",
+  "testcase_id": "01M5QZK3Y2PC5KNA7GVEM4QS3X",
+  "project_id": "01M5QWE65A5R2K00ATR34FJ2RN",
+  "folder_id": "01M5QWE6FFRM57B2S8Y3AXHAG5",
+  "org_id": "3399331",
+  "session_name": "hide-slots-unavailable-to-this-abhyasi",
+  "executions": [
+    {
+      "execution_id": "d236ad93-f95e-43a1-842d-3aa07bcb8b20",
+      "run_kind": "author",
+      "status": "passed",
+      "valid": true,
+      "uploaded": false,
+      "at": "2026-10-24T23:37:15.629Z"
+    },
+    {
+      "execution_id": "3aa799f9-9798-4dc1-b3cd-1cc99f5c2793",
+      "run_kind": "replay",
+      "status": "passed",
+      "at": "2026-10-24T23:41:20.108Z",
+      "uploaded": true
+    }
+  ]
+}

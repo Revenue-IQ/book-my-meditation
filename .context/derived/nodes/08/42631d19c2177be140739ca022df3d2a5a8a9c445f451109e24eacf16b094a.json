@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"A slot defaults to visibility for all linked Abhyasis.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"forall","operand":"linked Abhyasis may view an unrestricted slot"}}}

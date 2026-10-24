@@ -1,0 +1,1 @@
+{"label":"ac","content":{"text":"An eligible Abhyasi's booking takes effect without preceptor approval.","kind":"state-transition","risk":"med","derived":true,"expected_answer":{"kind":"state-transition","operator":"equals","baseline":"eligible Abhyasi has no booking for an open visible slot","operand":"Abhyasi has a booking for that slot without preceptor approval"}}}

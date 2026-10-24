@@ -1,0 +1,729 @@
+{
+  "id": "fd481437-06d2-4c4e-ad17-edf10158a7fa",
+  "prevId": "4eba68ef-6a90-42c9-8747-938523b17872",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "heartfulness_sitting.bookings": {
+      "name": "bookings",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "slot_id": {
+          "name": "slot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abhyasi_id": {
+          "name": "abhyasi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "booking_status",
+          "typeSchema": "heartfulness_sitting",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'booked'"
+        },
+        "cancelled_by": {
+          "name": "cancelled_by",
+          "type": "cancelled_by",
+          "typeSchema": "heartfulness_sitting",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "bookings_active_unique": {
+          "name": "bookings_active_unique",
+          "columns": [
+            {
+              "expression": "slot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "abhyasi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"heartfulness_sitting\".\"bookings\".\"status\" <> 'cancelled'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "bookings_slot_id_slots_id_fk": {
+          "name": "bookings_slot_id_slots_id_fk",
+          "tableFrom": "bookings",
+          "tableTo": "slots",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "slot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "bookings_abhyasi_id_users_id_fk": {
+          "name": "bookings_abhyasi_id_users_id_fk",
+          "tableFrom": "bookings",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "abhyasi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.checkins": {
+      "name": "checkins",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "abhyasi_id": {
+          "name": "abhyasi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mood": {
+          "name": "mood",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practices": {
+          "name": "practices",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "checkins_abhyasi_day_unique": {
+          "name": "checkins_abhyasi_day_unique",
+          "columns": [
+            {
+              "expression": "abhyasi_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "day",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "checkins_abhyasi_id_users_id_fk": {
+          "name": "checkins_abhyasi_id_users_id_fk",
+          "tableFrom": "checkins",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "abhyasi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.preceptor_abhyasi_links": {
+      "name": "preceptor_abhyasi_links",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "preceptor_id": {
+          "name": "preceptor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abhyasi_id": {
+          "name": "abhyasi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "preceptor_abhyasi_links_preceptor_id_users_id_fk": {
+          "name": "preceptor_abhyasi_links_preceptor_id_users_id_fk",
+          "tableFrom": "preceptor_abhyasi_links",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "preceptor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "preceptor_abhyasi_links_abhyasi_id_users_id_fk": {
+          "name": "preceptor_abhyasi_links_abhyasi_id_users_id_fk",
+          "tableFrom": "preceptor_abhyasi_links",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "abhyasi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "preceptor_abhyasi_links_preceptor_id_abhyasi_id_pk": {
+          "name": "preceptor_abhyasi_links_preceptor_id_abhyasi_id_pk",
+          "columns": [
+            "preceptor_id",
+            "abhyasi_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.preceptor_pref": {
+      "name": "preceptor_pref",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "preceptor_id": {
+          "name": "preceptor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reminder_lead_hours": {
+          "name": "reminder_lead_hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 8
+        },
+        "history_weeks": {
+          "name": "history_weeks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 8
+        },
+        "not_seen_weeks": {
+          "name": "not_seen_weeks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "preceptor_pref_preceptor_id_users_id_fk": {
+          "name": "preceptor_pref_preceptor_id_users_id_fk",
+          "tableFrom": "preceptor_pref",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "preceptor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "preceptor_pref_preceptor_id_unique": {
+          "name": "preceptor_pref_preceptor_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "preceptor_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.slot_visibility": {
+      "name": "slot_visibility",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "slot_id": {
+          "name": "slot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abhyasi_id": {
+          "name": "abhyasi_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "slot_visibility_slot_id_slots_id_fk": {
+          "name": "slot_visibility_slot_id_slots_id_fk",
+          "tableFrom": "slot_visibility",
+          "tableTo": "slots",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "slot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "slot_visibility_abhyasi_id_users_id_fk": {
+          "name": "slot_visibility_abhyasi_id_users_id_fk",
+          "tableFrom": "slot_visibility",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "abhyasi_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "slot_visibility_slot_id_abhyasi_id_pk": {
+          "name": "slot_visibility_slot_id_abhyasi_id_pk",
+          "columns": [
+            "slot_id",
+            "abhyasi_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.slots": {
+      "name": "slots",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "preceptor_id": {
+          "name": "preceptor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_at": {
+          "name": "start_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 45
+        },
+        "capacity": {
+          "name": "capacity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "visibility",
+          "typeSchema": "heartfulness_sitting",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'all'"
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "slots_preceptor_id_users_id_fk": {
+          "name": "slots_preceptor_id_users_id_fk",
+          "tableFrom": "slots",
+          "tableTo": "users",
+          "schemaTo": "heartfulness_sitting",
+          "columnsFrom": [
+            "preceptor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "heartfulness_sitting.users": {
+      "name": "users",
+      "schema": "heartfulness_sitting",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "role",
+          "typeSchema": "heartfulness_sitting",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "insert_time": {
+          "name": "insert_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_time": {
+          "name": "update_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inserted_by": {
+          "name": "inserted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "heartfulness_sitting.booking_status": {
+      "name": "booking_status",
+      "schema": "heartfulness_sitting",
+      "values": [
+        "booked",
+        "confirmed",
+        "cancelled"
+      ]
+    },
+    "heartfulness_sitting.cancelled_by": {
+      "name": "cancelled_by",
+      "schema": "heartfulness_sitting",
+      "values": [
+        "abhyasi",
+        "preceptor"
+      ]
+    },
+    "heartfulness_sitting.role": {
+      "name": "role",
+      "schema": "heartfulness_sitting",
+      "values": [
+        "admin",
+        "preceptor",
+        "abhyasi"
+      ]
+    },
+    "heartfulness_sitting.visibility": {
+      "name": "visibility",
+      "schema": "heartfulness_sitting",
+      "values": [
+        "all",
+        "restricted"
+      ]
+    }
+  },
+  "schemas": {
+    "heartfulness_sitting": "heartfulness_sitting"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

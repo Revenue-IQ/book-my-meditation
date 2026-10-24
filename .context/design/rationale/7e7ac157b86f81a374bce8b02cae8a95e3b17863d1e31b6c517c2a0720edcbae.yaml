@@ -1,0 +1,9 @@
+anchor: ac-13
+combinatorial:
+  reason: (auth/data-loss judged for use case); no cross-product of independent invalid fields because error co-occurrence is unspecified.
+  strength: 3
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: BVA output duration [0,4,5,6,239,240,241], capacity [0,1,2,49,50,51], plus empty/null; only out-of-range values 0,4,241 and 0,51 expect the sourced error. EQP puts equal-outcome failures in one parameterized path. 3-wise risk strength=3 (auth/data-loss judged for use case); no cross-product of independent invalid fields because error co-occurrence is unspecified.

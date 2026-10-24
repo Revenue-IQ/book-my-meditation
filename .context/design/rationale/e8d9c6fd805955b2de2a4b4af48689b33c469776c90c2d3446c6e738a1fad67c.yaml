@@ -1,0 +1,9 @@
+anchor: ac-24
+combinatorial:
+  reason: EQP valid class, state flow from planning to publication, timezone and defaults. Strength=3 from auth/data-loss; covering array on visibility [all linked,selected], duration [5,45,240], capacity [1,2,50] produced 18 combinations; the default representative all linked/45/1 is used here; selected is exercised separately. Uncovered valid cross-products are lower priority than distinct outcomes at the four-pair ceiling.
+  strength: 2
+deferred_bindings: 0
+expected_how: 'expected_mode: authored'
+profile_family: unspecified
+surface_state: absent
+technique: EQP valid class, state flow from planning to publication, timezone and defaults. Strength=3 from auth/data-loss; covering array on visibility [all linked,selected], duration [5,45,240], capacity [1,2,50] produced 18 combinations; the default representative all linked/45/1 is used here; selected is exercised separately. Uncovered valid cross-products are lower priority than distinct outcomes at the four-pair ceiling.
