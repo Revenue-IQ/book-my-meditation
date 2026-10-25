@@ -1,0 +1,28 @@
+name: Debug Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect containers and app health
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            echo "== containers =="
+            docker ps -a
+            echo "== app logs =="
+            cd ~/app && docker compose logs --tail 60 app
+            echo "== db logs =="
+            docker compose logs --tail 10 db
+            echo "== curl from inside the instance =="
+            curl -s -o /dev/null -w 'localhost:80 -> HTTP %{http_code}\n' http://localhost/ || true
+            curl -s http://localhost/api/dev/users | head -c 300 || true
+            echo
+            echo "== listening ports =="
+            sudo ss -ltnp | grep -E ':(80|3001)' || echo "nothing on 80/3001"
