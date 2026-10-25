@@ -2,7 +2,7 @@
 
 Preceptors post meditation availability; Abhyasis book slots. See [REQUIREMENTS.md](REQUIREMENTS.md), [PLAN.md](PLAN.md), [TECH-STACK.md](TECH-STACK.md).
 
-Built for **Kane CLI Hack Day, San Francisco, October 24 2026** — live at **[live URL]**.
+Built for **Kane CLI Hack Day, San Francisco, October 24 2026** — live at **http://52.88.238.95**.
 
 ## Verified with Kane CLI
 
