@@ -21,7 +21,7 @@ console.log('Migrations applied.');
 
 // Seed demo data only when the database is empty — the seed script wipes all rows,
 // so it must never run against a database that already has real bookings.
-const { rows } = await db.execute(sql`select count(*)::int as n from users`);
+const { rows } = await db.execute(sql`select count(*)::int as n from heartfulness_sitting.users`);
 if ((rows[0] as { n: number }).n === 0) {
   console.log('Empty database — seeding demo data.');
   // seed.ts closes its own pool, so it runs as a subprocess.
