@@ -2,6 +2,16 @@
 
 Preceptors post meditation availability; Abhyasis book slots. See [REQUIREMENTS.md](REQUIREMENTS.md), [PLAN.md](PLAN.md), [TECH-STACK.md](TECH-STACK.md).
 
+Built for **Kane CLI Hack Day, San Francisco, October 24 2026** — live at **[live URL]**.
+
+## Verified with Kane CLI
+
+No test case in this repo was written by hand. Kane CLI ingested the requirements doc (`context ingest`), derived use cases and acceptance criteria, designed the scenarios, and compiled them into runnable `_test.md` suites that it executes in a real browser. The scenarios cover the booking happy path, the double-booking refusal (a designed negative test), role-based visibility across admin/preceptor/abhyasi, and timezone display. Evidence packs and the `kane-cli cover` coverage report live in the assurance store at [`.context/`](.context/).
+
+## Deployment
+
+Two Docker containers on AWS Lightsail: the app (the Hono API serving both the JSON API and the built React UI from one image) and PostgreSQL 17 — see [deploy/docker-compose.yml](deploy/docker-compose.yml). [GitHub Actions](.github/workflows/deploy.yml) builds the image to GHCR and redeploys over SSH on every push to `main` (≈90 s push-to-live). On boot the app waits for Postgres, applies Drizzle migrations, and seeds demo data only if the database is empty ([api/src/start.ts](api/src/start.ts)). The deployed demo runs in no-login mode (`AUTH_MODE=local`); Clerk auth is the next phase.
+
 ## Run locally
 
 Needs: Node 22, local Postgres running (Homebrew `postgresql@17` is fine). Uses the `heartfulness_sitting` schema in the `postgres` database — see `.env`.
