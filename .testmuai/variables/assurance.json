@@ -83,5 +83,50 @@
     "value": "last week's plan for Prakash: Saturday Oct 17 at 10:00 PM (45 min) and Sunday Oct 18 at 11:30 AM (30 min)",
     "secret": false,
     "description": "Identifier or description of a seeded prior-week plan with a known sitting slot for the preceptor account."
+  },
+  "past_occupied_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of an ended preceptor slot with at least one non-cancelled booking for direct deletion attempt"
+  },
+  "past_group_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of an ended preceptor slot with at least two non-cancelled bookings for cancel-and-delete attempt"
+  },
+  "future_group_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of a future preceptor slot with multiple bookings for cancellation-and-deletion cascade"
+  },
+  "future_direct_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of a future preceptor slot with one or more bookings for direct deletion"
+  },
+  "booked_future_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of future preceptor slot booked by one Abhyasi and visible to another eligible linked Abhyasi after cancellation"
+  },
+  "empty_past_slot": {
+    "value": "",
+    "secret": false,
+    "description": "Identifier of an ended preceptor slot with no non-cancelled bookings for deletion"
+  },
+  "restricted_slot_question": {
+    "value": "",
+    "secret": false,
+    "description": "Natural-language question matching the other Abhyasi's restricted sitting without an internal slot ID."
+  },
+  "full_slot_question": {
+    "value": "",
+    "secret": false,
+    "description": "Natural-language question uniquely matching the full sitting without an internal slot ID."
+  },
+  "no_fit_question": {
+    "value": "",
+    "secret": false,
+    "description": "Natural-language question known not to match any currently open visible sitting."
   }
 }

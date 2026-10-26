@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"The unselected linked Abhyasi cannot see the slot restricted to another Abhyasi.","kind":"forbidden-presence","risk":"med","derived":true,"expected_answer":{"kind":"forbidden-presence","operator":"exists","operand":"slot restricted to another linked Abhyasi in the unselected Abhyasi's available slots"}}}

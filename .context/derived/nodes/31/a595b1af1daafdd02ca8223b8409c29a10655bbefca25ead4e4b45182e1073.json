@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"The published default slot appears among the linked Abhyasi's available slots.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"exists","operand":"newly published default slot among a linked Abhyasi's available slots"}}}

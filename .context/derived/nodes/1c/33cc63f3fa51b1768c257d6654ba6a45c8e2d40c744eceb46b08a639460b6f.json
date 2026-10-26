@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"Every eligible open slot from each preceptor linked to the Abhyasi is available in the Abhyasi's slot view.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"forall","operand":"eligible open slots from every linked preceptor appear in the Abhyasi's slot view","baseline":null}}}

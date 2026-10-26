@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { CalendarPlus, ChevronLeft, ChevronRight, Copy, Lock, Trash2, Users, X } from 'lucide-react';
 import { useState } from 'react';
-import { api, fmtDay, fmtTime, weekStartOf, type PreceptorSlot, type SlotBooking } from '../api';
+import { api, fmtDay, fmtTime, localDay, weekStartOf, type PreceptorSlot, type SlotBooking } from '../api';
 
 // "No reply" is only alarming close to the sitting (inside the reminder window);
 // before that, an unconfirmed booking is simply "planned".
@@ -22,22 +22,34 @@ export default function PreceptorWeek() {
   const [detailSlotId, setDetailSlotId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ booking: SlotBooking; slot: PreceptorSlot } | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const weekStart = new Date(weekStartOf(new Date()).getTime() + weekOffset * 7 * 86400000);
+  // Calendar arithmetic, not milliseconds: a week across a DST change is not 168 hours,
+  // and +offset*168h would drift the week start off Monday midnight.
+  const monday = weekStartOf(new Date());
+  const weekStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + weekOffset * 7);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
   const weekKey = weekStart.toISOString();
 
   const slots = useQuery({
     queryKey: ['week', weekKey],
-    queryFn: () => api<PreceptorSlot[]>(`/api/preceptor/week?weekStart=${encodeURIComponent(weekKey)}`),
+    queryFn: () =>
+      api<PreceptorSlot[]>(
+        `/api/preceptor/week?weekStart=${encodeURIComponent(weekKey)}&weekEnd=${encodeURIComponent(weekEnd.toISOString())}`,
+      ),
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['week'] });
-  const onError = (e: Error) => setError(e.message);
+  const onError = (e: Error) => {
+    setNotice('');
+    setError(e.message);
+  };
 
   const copyWeek = useMutation({
     mutationFn: () => api<{ copied: number }>('/api/preceptor/copy-last-week', { method: 'POST', body: JSON.stringify({ weekStart: weekKey }) }),
     onSuccess: (r) => {
-      setError(r.copied === 0 ? 'Nothing new to copy from last week.' : '');
+      setError('');
+      setNotice(r.copied === 0 ? 'Nothing new to copy from last week.' : `Copied ${r.copied} slot${r.copied === 1 ? '' : 's'} from last week.`);
       refresh();
     },
     onError,
@@ -61,13 +73,38 @@ export default function PreceptorWeek() {
     onError,
   });
 
-  const days = [...Array(7)].map((_, i) => new Date(weekStart.getTime() + i * 86400000));
+  const days = [...Array(7)].map((_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i));
   const detailSlot = slots.data?.find((s) => s.id === detailSlotId) ?? null;
+
+  const onCreated = (slot: { startAt: string }) => {
+    setShowForm(false);
+    setError('');
+    setNotice(`Slot created: ${fmtDay(new Date(slot.startAt))} · ${fmtTime(slot.startAt)}`);
+    refresh();
+  };
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <button
+          className="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
+          onClick={() => setShowForm((s) => !s)}
+        >
+          <CalendarPlus className="h-4 w-4" /> Add slot
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium hover:bg-stone-100"
+            onClick={() => copyWeek.mutate()}
+            disabled={copyWeek.isPending}
+          >
+            <Copy className="h-4 w-4" /> Copy last week
+          </button>
+          {weekOffset !== 0 && (
+            <button className="text-sm text-emerald-700 underline" onClick={() => setWeekOffset(0)}>
+              today
+            </button>
+          )}
           <button className="rounded-lg border border-stone-300 p-1.5 hover:bg-stone-100" onClick={() => setWeekOffset((w) => w - 1)}>
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -77,26 +114,6 @@ export default function PreceptorWeek() {
           <button className="rounded-lg border border-stone-300 p-1.5 hover:bg-stone-100" onClick={() => setWeekOffset((w) => w + 1)}>
             <ChevronRight className="h-4 w-4" />
           </button>
-          {weekOffset !== 0 && (
-            <button className="text-sm text-emerald-700 underline" onClick={() => setWeekOffset(0)}>
-              today
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium hover:bg-stone-100"
-            onClick={() => copyWeek.mutate()}
-            disabled={copyWeek.isPending}
-          >
-            <Copy className="h-4 w-4" /> Copy last week
-          </button>
-          <button
-            className="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
-            onClick={() => setShowForm((s) => !s)}
-          >
-            <CalendarPlus className="h-4 w-4" /> Add slot
-          </button>
         </div>
       </div>
 
@@ -105,8 +122,14 @@ export default function PreceptorWeek() {
           {error}
         </p>
       )}
+      {notice && (
+        <p className="cursor-pointer rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900" onClick={() => setNotice('')}>
+          {notice}
+        </p>
+      )}
 
-      {showForm && <AddSlotForm onDone={() => { setShowForm(false); refresh(); }} onError={onError} />}
+      {/* key: a fresh form per week, so the selected day always belongs to the visible week */}
+      {showForm && <AddSlotForm key={weekKey} days={days} onDone={onCreated} onError={onError} />}
 
       <div className="space-y-4">
         {days.map((day) => {
@@ -241,14 +264,31 @@ export default function PreceptorWeek() {
   );
 }
 
-function AddSlotForm({ onDone, onError }: { onDone: () => void; onError: (e: Error) => void }) {
-  const today = new Date();
-  const [date, setDate] = useState(
-    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
-  );
-  const [hour, setHour] = useState(7);
-  const [minute, setMinute] = useState(0);
-  const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
+function AddSlotForm({
+  days,
+  onDone,
+  onError,
+}: {
+  days: Date[];
+  onDone: (slot: { startAt: string }) => void;
+  onError: (e: Error) => void;
+}) {
+  // Default to the next quarter-hour, not a fixed 7:00 AM: a default that is already in
+  // the past turned every stray submit into a confusing "must be in the future" error.
+  const firstStart = new Date(Math.ceil(Date.now() / 900000) * 900000);
+  // Day picker: chips for the visible week instead of a native date input — the slot
+  // lands in the week on screen (no more "created it but can't see it"), and Safari's
+  // date-input calendar popup (which stays open after picking a day) is gone entirely.
+  const todayKey = localDay();
+  const dayChips = days.map((d) => {
+    const key = localDay(d);
+    return { key, label: fmtDay(d), past: key < todayKey };
+  });
+  const firstUsable = dayChips.find((d) => !d.past);
+  const [date, setDate] = useState(firstUsable?.key ?? '');
+  const [hour, setHour] = useState(((firstStart.getHours() + 11) % 12) + 1);
+  const [minute, setMinute] = useState(firstStart.getMinutes());
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>(firstStart.getHours() < 12 ? 'AM' : 'PM');
   const [duration, setDuration] = useState(45);
   const [capacity, setCapacity] = useState(1);
   const [restricted, setRestricted] = useState(false);
@@ -264,7 +304,9 @@ function AddSlotForm({ onDone, onError }: { onDone: () => void; onError: (e: Err
       const [y, m, d] = date.split('-').map(Number);
       const h24 = (hour % 12) + (ampm === 'PM' ? 12 : 0);
       const startAt = new Date(y, m - 1, d, h24, minute); // local time → UTC on the wire
-      return api('/api/preceptor/slots', {
+      if (startAt.getTime() <= Date.now())
+        throw new Error('That time has already passed today — pick a later time or another day.');
+      return api<{ startAt: string }>('/api/preceptor/slots', {
         method: 'POST',
         body: JSON.stringify({
           startAt: startAt.toISOString(),
@@ -286,26 +328,45 @@ function AddSlotForm({ onDone, onError }: { onDone: () => void; onError: (e: Err
         create.mutate();
       }}
     >
+      <div className="text-sm">
+        <span className="mb-1 block font-medium">Day</span>
+        <div className="flex flex-wrap gap-1.5">
+          {dayChips.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              disabled={d.past}
+              onClick={() => setDate(d.key)}
+              className={clsx(
+                'rounded-full border px-2.5 py-1',
+                d.past ? 'cursor-not-allowed border-stone-200 text-stone-300'
+                : date === d.key ? 'border-emerald-500 bg-emerald-100 font-medium text-emerald-900'
+                : 'border-stone-300 bg-white hover:bg-stone-50',
+              )}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+        {!firstUsable && <p className="mt-2 text-stone-500">This week is over — switch to a current week to add slots.</p>}
+      </div>
+
       <div className="flex flex-wrap items-end gap-3">
-        <label className="text-sm">
-          <span className="mb-1 block font-medium">Date</span>
-          <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg border border-stone-300 px-2 py-1.5" />
-        </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium">Start time</span>
           <span className="flex items-center gap-1">
-            <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className="rounded-lg border border-stone-300 px-2 py-1.5">
+            <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className="h-9 w-16 rounded-lg border border-stone-300 px-2">
               {[...Array(12)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>{i + 1}</option>
               ))}
             </select>
             :
-            <select value={minute} onChange={(e) => setMinute(Number(e.target.value))} className="rounded-lg border border-stone-300 px-2 py-1.5">
+            <select value={minute} onChange={(e) => setMinute(Number(e.target.value))} className="h-9 w-16 rounded-lg border border-stone-300 px-2">
               {[0, 15, 30, 45].map((m) => (
                 <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
               ))}
             </select>
-            <select value={ampm} onChange={(e) => setAmpm(e.target.value as 'AM' | 'PM')} className="rounded-lg border border-stone-300 px-2 py-1.5">
+            <select value={ampm} onChange={(e) => setAmpm(e.target.value as 'AM' | 'PM')} className="h-9 w-18 rounded-lg border border-stone-300 px-2">
               <option>AM</option>
               <option>PM</option>
             </select>
@@ -313,11 +374,11 @@ function AddSlotForm({ onDone, onError }: { onDone: () => void; onError: (e: Err
         </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium">Duration (min)</span>
-          <input type="number" min={5} max={240} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
+          <input type="number" min={5} max={240} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="h-9 w-20 rounded-lg border border-stone-300 px-2" />
         </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium">Capacity</span>
-          <input type="number" min={1} max={50} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="w-16 rounded-lg border border-stone-300 px-2 py-1.5" />
+          <input type="number" min={1} max={50} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="h-9 w-16 rounded-lg border border-stone-300 px-2" />
         </label>
       </div>
 
@@ -343,7 +404,11 @@ function AddSlotForm({ onDone, onError }: { onDone: () => void; onError: (e: Err
         )}
       </div>
 
-      <button type="submit" disabled={create.isPending} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">
+      <button
+        type="submit"
+        disabled={create.isPending || !date}
+        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:bg-stone-300"
+      >
         Create slot
       </button>
     </form>

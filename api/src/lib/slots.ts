@@ -1,5 +1,5 @@
 // Slot business logic. No HTTP, no auth imports — testable on its own.
-import { and, asc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import {
   bookings,
@@ -31,9 +31,12 @@ async function reminderLeadMs(preceptorId: string) {
   return (pref?.reminderLeadHours ?? 8) * 3600000;
 }
 
-/** A preceptor's slots in [weekStart, weekStart+7d), each with its bookings and visibility list. */
-export async function listWeek(preceptorId: string, weekStart: Date) {
-  const weekEnd = new Date(weekStart.getTime() + WEEK_MS);
+/**
+ * A preceptor's slots in [weekStart, weekEnd), each with its bookings and visibility list.
+ * The client sends both bounds because only it knows the preceptor's local week — across a
+ * DST change the local week is not 168 hours long.
+ */
+export async function listWeek(preceptorId: string, weekStart: Date, weekEnd = new Date(weekStart.getTime() + WEEK_MS)) {
   const leadMs = await reminderLeadMs(preceptorId);
   const slotRows = await db
     .select()
@@ -73,6 +76,46 @@ export async function listWeek(preceptorId: string, weekStart: Date) {
   }));
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Serializes slot writes per preceptor, the way bookings lock the slot row for capacity:
+ * two simultaneous creates both pass a plain overlap check, so the check only holds behind
+ * a lock. (A DB exclusion constraint would also work, but adding one can fail on deployed
+ * data that already contains overlaps — revisit with Phase 5's data audit.)
+ */
+async function lockPreceptor(tx: Tx, preceptorId: string) {
+  await tx.execute(sql`select id from ${users} where ${users.id} = ${preceptorId} for update`);
+}
+
+/** The preceptor's existing slot overlapping [startAt, endAt), if any. Back-to-back is not an overlap. */
+async function findClash(tx: Tx, preceptorId: string, startAt: Date, endAt: Date) {
+  const [clash] = await tx
+    .select({ startAt: slots.startAt, durationMinutes: slots.durationMinutes })
+    .from(slots)
+    .where(
+      and(
+        eq(slots.preceptorId, preceptorId),
+        lt(slots.startAt, endAt),
+        gt(sql`${slots.startAt} + ${slots.durationMinutes} * interval '1 minute'`, startAt),
+      ),
+    )
+    .limit(1);
+  return clash;
+}
+
+/** Server-local formatting; in local dev that is the preceptor's own timezone (same caveat as copy-last-week). */
+function fmtClash(clash: { startAt: Date; durationMinutes: number }) {
+  const when = clash.startAt.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return `${when} (${clash.durationMinutes} min)`;
+}
+
 export async function createSlot(input: {
   preceptorId: string;
   startAt: Date;
@@ -94,6 +137,11 @@ export async function createSlot(input: {
   }
 
   return db.transaction(async (tx) => {
+    await lockPreceptor(tx, input.preceptorId);
+    const endAt = new Date(input.startAt.getTime() + input.durationMinutes * 60000);
+    const clash = await findClash(tx, input.preceptorId, input.startAt, endAt);
+    if (clash)
+      throw new AppError(`This overlaps your existing slot on ${fmtClash(clash)}. Back-to-back is fine; overlapping is not.`, 409);
     const [slot] = await tx
       .insert(slots)
       .values({
@@ -142,7 +190,7 @@ export async function deleteSlot(slotId: string, preceptorId: string) {
   await db.delete(slots).where(eq(slots.id, slotId)); // bookings & visibility cascade
 }
 
-/** Copy last week's slots (relative to weekStart) into this week. Skips exact duplicates. Bookings are not copied. */
+/** Copy last week's slots (relative to weekStart) into this week. Skips slots that would overlap existing ones. Bookings are not copied. */
 export async function copyLastWeek(preceptorId: string, weekStart: Date) {
   const prevStart = new Date(weekStart.getTime() - WEEK_MS);
   const prevSlots = await db
@@ -151,14 +199,9 @@ export async function copyLastWeek(preceptorId: string, weekStart: Date) {
     .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, prevStart), lt(slots.startAt, weekStart)));
   if (prevSlots.length === 0) return { copied: 0 };
 
-  const existing = await db
-    .select({ startAt: slots.startAt })
-    .from(slots)
-    .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, weekStart), lt(slots.startAt, new Date(weekStart.getTime() + WEEK_MS))));
-  const taken = new Set(existing.map((s) => s.startAt.getTime()));
-
   let copied = 0;
   await db.transaction(async (tx) => {
+    await lockPreceptor(tx, preceptorId);
     for (const src of prevSlots) {
       // +7 days by calendar, not by milliseconds: keeps 7:00 AM at 7:00 AM across
       // daylight-saving changes. Uses the server's timezone, which in local dev is
@@ -166,7 +209,11 @@ export async function copyLastWeek(preceptorId: string, weekStart: Date) {
       // preceptor timezone (planned for Phase 5).
       const s = src.startAt;
       const newStart = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 7, s.getHours(), s.getMinutes());
-      if (newStart.getTime() <= Date.now() || taken.has(newStart.getTime())) continue;
+      if (newStart.getTime() <= Date.now()) continue;
+      // Same no-overlap rule as createSlot; the query sees this transaction's own
+      // earlier inserts, so copied slots cannot overlap each other either.
+      const newEnd = new Date(newStart.getTime() + src.durationMinutes * 60000);
+      if (await findClash(tx, preceptorId, newStart, newEnd)) continue;
       const [slot] = await tx
         .insert(slots)
         .values({

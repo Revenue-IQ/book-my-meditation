@@ -1,9 +1,0 @@
-anchor: ac-5
-combinatorial:
-  reason: 'Negative/auth EQP: inaccessible unlinked versus linked but restricted to someone else are equivalent forbidden outcomes swept as parameters. Strength=3 because visibility is access-sensitive; covering_array''s unlinked and restricted classes are represented, not a claim of complete 3-wise execution under the ceiling.'
-  strength: 2
-deferred_bindings: 0
-expected_how: 'expected_mode: authored'
-profile_family: unspecified
-surface_state: absent
-technique: 'Negative/auth EQP: inaccessible unlinked versus linked but restricted to someone else are equivalent forbidden outcomes swept as parameters. Strength=3 because visibility is access-sensitive; covering_array''s unlinked and restricted classes are represented, not a claim of complete 3-wise execution under the ceiling.'

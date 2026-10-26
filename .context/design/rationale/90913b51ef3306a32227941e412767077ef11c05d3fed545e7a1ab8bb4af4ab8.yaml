@@ -1,9 +1,0 @@
-anchor: ac-8
-combinatorial:
-  reason: 'Negative/EQP: capacity reached versus remaining space; covers the negative occupancy family separately from authorization. BVA not applied: capacity 1 is a default, not a stated minimum or maximum. Strength=3 due to capacity integrity and access risk; covering_array''s linked/full combination is represented.'
-  strength: 2
-deferred_bindings: 0
-expected_how: 'expected_mode: authored'
-profile_family: unspecified
-surface_state: absent
-technique: 'Negative/EQP: capacity reached versus remaining space; covers the negative occupancy family separately from authorization. BVA not applied: capacity 1 is a default, not a stated minimum or maximum. Strength=3 due to capacity integrity and access risk; covering_array''s linked/full combination is represented.'

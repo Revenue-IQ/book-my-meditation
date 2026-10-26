@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"Slot times are stored in UTC.","kind":"absolute","risk":"med","derived":true,"expected_answer":{"kind":"absolute","operator":"equals","operand":"UTC representation of the preceptor's entered time"}}}

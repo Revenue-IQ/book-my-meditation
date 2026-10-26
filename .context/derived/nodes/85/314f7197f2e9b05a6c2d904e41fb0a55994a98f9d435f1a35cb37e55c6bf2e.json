@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"A slot's duration can be changed per slot within 5–240 minutes.","kind":"bound","risk":"med","derived":true,"expected_answer":{"kind":"bound","operator":"gte","operand":5,"unit":"minutes"}}}

@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"A slot's start time is entered with AM/PM in the preceptor's own timezone.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"exists","operand":"slot start time entered with AM/PM in the preceptor's timezone"}}}

@@ -5,3 +5,9 @@ dist/
 .env
 *.tsbuildinfo
 api/public/
+launch/
+
+# KaneCLI (Phase 3): the assurance store is append-only and must never be git-merged;
+# evidence packs are run artifacts. Tests + their output-*/ recordings ARE committed.
+.context/
+.testmuai/evidence/

@@ -1,9 +1,0 @@
-anchor: ac-23
-combinatorial:
-  reason: Negative/auth and list-membership exclusion; known unselected linked user is the negative witness. Strength=3 from auth/data-loss; three-way combinations belong to the valid-input sweep, not a license to infer other visibility rules. Under four-pair ceiling highest-risk privacy path.
-  strength: 2
-deferred_bindings: 0
-expected_how: 'expected_mode: authored'
-profile_family: unspecified
-surface_state: absent
-technique: Negative/auth and list-membership exclusion; known unselected linked user is the negative witness. Strength=3 from auth/data-loss; three-way combinations belong to the valid-input sweep, not a license to infer other visibility rules. Under four-pair ceiling highest-risk privacy path.

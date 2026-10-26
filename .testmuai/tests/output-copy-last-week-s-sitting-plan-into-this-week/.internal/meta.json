@@ -8,19 +8,12 @@
   "session_name": "copy-last-week-s-sitting-plan-into-this-week",
   "executions": [
     {
-      "execution_id": "d236ad93-f95e-43a1-842d-3aa07bcb8b20",
+      "execution_id": "bc6de309-a336-47a4-b659-d8e0b73c92da",
       "run_kind": "author",
-      "status": "passed",
-      "valid": true,
-      "uploaded": false,
-      "at": "2026-10-24T23:37:15.628Z"
-    },
-    {
-      "execution_id": "3aa799f9-9798-4dc1-b3cd-1cc99f5c2793",
-      "run_kind": "replay",
-      "status": "passed",
-      "at": "2026-10-24T23:41:20.105Z",
-      "uploaded": true
+      "status": "failed",
+      "valid": false,
+      "uploaded": true,
+      "at": "2026-10-25T00:33:13.800Z"
     }
   ]
 }

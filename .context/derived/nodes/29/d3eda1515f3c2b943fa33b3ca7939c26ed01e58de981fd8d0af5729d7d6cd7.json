@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"Copying last week's plan creates that plan in the current week.","kind":"presence","risk":"med","derived":true,"expected_answer":{"kind":"presence","operator":"exists","operand":"current-week copy of last week's plan"}}}

@@ -1,1 +1,0 @@
-{"label":"ac","content":{"text":"Each displayed slot time is rendered in the viewing Abhyasi's own timezone.","kind":"absolute","risk":"med","derived":true,"expected_answer":{"kind":"absolute","operator":"equals","operand":"slot's UTC instant converted to the viewing Abhyasi's timezone","baseline":null}}}
