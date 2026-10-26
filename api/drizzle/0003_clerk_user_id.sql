@@ -1,0 +1,2 @@
+ALTER TABLE "heartfulness_sitting"."users" ADD COLUMN "clerk_user_id" text;--> statement-breakpoint
+ALTER TABLE "heartfulness_sitting"."users" ADD CONSTRAINT "users_clerk_user_id_unique" UNIQUE("clerk_user_id");

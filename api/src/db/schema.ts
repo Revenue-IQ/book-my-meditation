@@ -31,6 +31,9 @@ export const users = app.table('users', {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   role: roleEnum('role').notNull(),
+  // Clerk account bound to this user (Phase 4). Null until first sign-in: rows are created
+  // by invitation (admin/preceptor) and matched to the Clerk account by email, then bound here.
+  clerkUserId: text('clerk_user_id').unique(),
   ...audit,
 });
 

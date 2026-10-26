@@ -32,6 +32,9 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
+          # Public key, baked into the web build (Vite env vars are build-time).
+          build-args: |
+            VITE_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -64,6 +67,9 @@ jobs:
             set -e
             cd ~/app
             printf 'POSTGRES_PASSWORD=%s\n' '${{ secrets.POSTGRES_PASSWORD }}' > .env
+            printf 'CLERK_SECRET_KEY=%s\n' '${{ secrets.CLERK_SECRET_KEY }}' >> .env
+            printf 'ADMIN_EMAIL=%s\n' '${{ secrets.ADMIN_EMAIL }}' >> .env
+            printf 'APP_URL=%s\n' '${{ secrets.APP_URL }}' >> .env
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
             docker compose pull
             docker compose up -d

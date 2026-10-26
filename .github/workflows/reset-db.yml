@@ -1,0 +1,34 @@
+# ONE-TIME database reset (Phase 4 cutover): deletes the Postgres volume so the app boots
+# into an empty database (migrations re-apply; no seed in clerk mode — the ADMIN_EMAIL
+# sign-in bootstraps the admin). Manually triggered only; delete this file after use.
+name: Reset DB (one-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "wipe" to confirm destroying ALL data on the server database
+        required: true
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "wipe" ]; then
+            echo 'Confirmation text does not match "wipe" — aborting.'; exit 1
+          fi
+
+      - name: Drop containers + volume and restart
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/app
+            docker compose down -v
+            docker compose up -d
+            echo "Done — database volume removed, containers restarted."

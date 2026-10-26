@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Flower2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
-import { api, getDevUserId, setDevUserId, type DevUser, type Me } from './api';
+import { CLERK_ENABLED, api, getDevUserId, setDevUserId, type DevUser, type Me } from './api';
+import ClerkGate from './ClerkGate';
 import AbhyasiCheckin from './pages/AbhyasiCheckin';
 import AbhyasiHome from './pages/AbhyasiHome';
 import Community from './pages/Community';
@@ -28,6 +30,53 @@ const navFor: Record<string, { to: string; label: string }[]> = {
 };
 
 export default function App() {
+  // Clerk on cloud deployments; the keyless local build keeps the no-login role switcher.
+  return CLERK_ENABLED ? <ClerkGate /> : <LocalApp />;
+}
+
+/** Header + role-gated routes, shared by both auth modes. */
+export function Shell({ me, headerRight }: { me: Me; headerRight: ReactNode }) {
+  return (
+    <div className="mx-auto min-h-screen max-w-5xl px-4 pb-16">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 py-4">
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2">
+            <Flower2 className="h-6 w-6 text-emerald-700" />
+            <h1 className="text-lg font-semibold">Heartfulness Sittings</h1>
+          </div>
+          <nav className="flex gap-1 text-sm" aria-label="Pages">
+            {navFor[me.role].map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end
+                className={({ isActive }) =>
+                  `rounded-lg px-3 py-1.5 font-medium ${isActive ? 'bg-emerald-100 text-emerald-900' : 'text-stone-600 hover:bg-stone-100'}`
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+        {headerRight}
+      </header>
+
+      <Routes>
+        <Route path="/" element={<Navigate to={roleHome[me.role]} replace />} />
+        <Route path="/preceptor" element={me.role === 'preceptor' ? <PreceptorWeek /> : <Navigate to="/" replace />} />
+        <Route path="/preceptor/abhyasis" element={me.role === 'preceptor' ? <PreceptorAbhyasis /> : <Navigate to="/" replace />} />
+        <Route path="/abhyasi" element={me.role === 'abhyasi' ? <AbhyasiHome /> : <Navigate to="/" replace />} />
+        <Route path="/abhyasi/checkin" element={me.role === 'abhyasi' ? <AbhyasiCheckin /> : <Navigate to="/" replace />} />
+        <Route path="/community" element={<Community />} />
+        <Route path="/admin" element={me.role === 'admin' ? <AdminOverview /> : <Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
+}
+
+function LocalApp() {
   const queryClient = useQueryClient();
   const devUsers = useQuery({ queryKey: ['devUsers'], queryFn: () => api<DevUser[]>('/api/dev/users') });
   const me = useQuery({
@@ -55,59 +104,21 @@ export default function App() {
     window.location.assign(u ? roleHome[u.role] : '/');
   };
 
-  return (
-    <div className="mx-auto min-h-screen max-w-5xl px-4 pb-16">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 py-4">
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2">
-            <Flower2 className="h-6 w-6 text-emerald-700" />
-            <h1 className="text-lg font-semibold">Heartfulness Sittings</h1>
-          </div>
-          {me.data && (
-            <nav className="flex gap-1 text-sm" aria-label="Pages">
-              {navFor[me.data.role].map((l) => (
-                <NavLink
-                  key={l.to}
-                  to={l.to}
-                  end
-                  className={({ isActive }) =>
-                    `rounded-lg px-3 py-1.5 font-medium ${isActive ? 'bg-emerald-100 text-emerald-900' : 'text-stone-600 hover:bg-stone-100'}`
-                  }
-                >
-                  {l.label}
-                </NavLink>
-              ))}
-            </nav>
-          )}
-        </div>
-        <label className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm">
-          <span className="font-medium text-amber-800">Acting as</span>
-          <select
-            className="bg-transparent font-semibold outline-none"
-            value={getDevUserId() ?? ''}
-            onChange={(e) => switchUser(e.target.value)}
-          >
-            {devUsers.data?.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name} — {u.role}
-              </option>
-            ))}
-          </select>
-        </label>
-      </header>
-
-      {me.data && (
-        <Routes>
-          <Route path="/" element={<Navigate to={roleHome[me.data.role]} replace />} />
-          <Route path="/preceptor" element={me.data.role === 'preceptor' ? <PreceptorWeek /> : <Navigate to="/" replace />} />
-          <Route path="/preceptor/abhyasis" element={me.data.role === 'preceptor' ? <PreceptorAbhyasis /> : <Navigate to="/" replace />} />
-          <Route path="/abhyasi" element={me.data.role === 'abhyasi' ? <AbhyasiHome /> : <Navigate to="/" replace />} />
-          <Route path="/abhyasi/checkin" element={me.data.role === 'abhyasi' ? <AbhyasiCheckin /> : <Navigate to="/" replace />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/admin" element={me.data.role === 'admin' ? <AdminOverview /> : <Navigate to="/" replace />} />
-        </Routes>
-      )}
-      {me.isError && <p className="text-red-600">Could not load user — is the API running?</p>}
-    </div>
+  const switcher = (
+    <label className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm">
+      <span className="font-medium text-amber-800">Acting as</span>
+      <select className="bg-transparent font-semibold outline-none" value={getDevUserId() ?? ''} onChange={(e) => switchUser(e.target.value)}>
+        {devUsers.data?.map((u) => (
+          <option key={u.id} value={u.id}>
+            {u.name} — {u.role}
+          </option>
+        ))}
+      </select>
+    </label>
   );
+
+  if (me.isError)
+    return <p className="p-6 text-red-600">Could not load user — is the API running?</p>;
+  if (!me.data) return null;
+  return <Shell me={me.data} headerRight={switcher} />;
 }

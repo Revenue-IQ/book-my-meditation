@@ -10,7 +10,7 @@ No test case in this repo was written by hand. Kane CLI ingested the requirement
 
 ## Deployment
 
-Two Docker containers on AWS Lightsail: the app (the Hono API serving both the JSON API and the built React UI from one image) and PostgreSQL 17 — see [deploy/docker-compose.yml](deploy/docker-compose.yml). [GitHub Actions](.github/workflows/deploy.yml) builds the image to GHCR and redeploys over SSH on every push to `main` (≈90 s push-to-live). On boot the app waits for Postgres, applies Drizzle migrations, and seeds demo data only if the database is empty ([api/src/start.ts](api/src/start.ts)). The deployed demo runs in no-login mode (`AUTH_MODE=local`); Clerk auth is the next phase.
+Two Docker containers on AWS Lightsail: the app (the Hono API serving both the JSON API and the built React UI from one image) and PostgreSQL 17 — see [deploy/docker-compose.yml](deploy/docker-compose.yml). [GitHub Actions](.github/workflows/deploy.yml) builds the image to GHCR and redeploys over SSH on every push to `main` (≈90 s push-to-live). On boot the app waits for Postgres, applies Drizzle migrations, and seeds demo data only if the database is empty and the app runs in local no-login mode ([api/src/start.ts](api/src/start.ts)). The deployed app signs in with Clerk (development instance for now — see [docs/features/accounts-and-invitations.md](docs/features/accounts-and-invitations.md)).
 
 ## Run locally
 
@@ -23,7 +23,7 @@ npm run db:seed      # sample users, links, slots, bookings (re-runnable, resets
 npm run dev          # API on :3001, web on :5178
 ```
 
-Open http://localhost:5178 — no login locally (`AUTH_MODE=local`): use the **Acting as** switcher (top right) to act as admin, preceptor, or abhyasi. Real Clerk login arrives in Phase 4; the local bypass refuses to start in production builds.
+Open http://localhost:5178 — no login locally (`AUTH_MODE=local`): use the **Acting as** switcher (top right) to act as admin, preceptor, or abhyasi. Cloud deployments use real Clerk login (Phase 4); the local bypass refuses to start in production builds.
 
 ## Layout
 

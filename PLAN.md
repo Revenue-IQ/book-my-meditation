@@ -40,11 +40,14 @@ Goal: a good, complete app. See REQUIREMENTS.md for the full spec, TECH-STACK.md
 - Coverage report + evidence packs (hackathon demo material)
 - Suite extended later as emails/accounts phases land (reconcile with updated requirements)
 
-## Phase 4 — Real accounts
+## Phase 4 — Real accounts (done)
 
-- Clerk login with the three roles
-- Admin creates preceptor accounts
+- Clerk login with the three roles (development Clerk instance until a domain is bought; roles stay in our `users` table, Clerk is identity only)
+- Local machine stays keyless: `AUTH_MODE=local` role switcher unchanged, Clerk only on cloud deployments
+- Admin creates preceptor accounts (form + Clerk invitation email, resend supported)
 - Preceptor invites Abhyasis by email (Clerk invitation): auto-link on accept, link-only when account already exists
+- First admin bootstraps via `ADMIN_EMAIL`; unknown sign-ins are refused; boot seed now runs only in local mode
+- See docs/features/accounts-and-invitations.md
 
 ## Phase 5 — Emails, reminders, attendance
 

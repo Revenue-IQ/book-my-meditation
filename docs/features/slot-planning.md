@@ -1,0 +1,37 @@
+# Slot Planning (Preceptor)
+
+Status: built in Phase 1; deletion rule narrowed in Phase 2; creation reworked (overlap rule, day chips, feedback) after launch-day bug reports · Last updated: 2026-10-25
+
+## What it does
+
+A preceptor plans their week of sittings: add a slot by picking a day (chips for the seven days of the week on screen, past days disabled), start time (12-hour with AM/PM, defaulting to the next quarter-hour), duration (default 45 min, changeable), capacity (default 1), and visibility (everyone, or specific chosen abhyasis). Slots show as compact boxes grouped by day; clicking a box opens a popup with full details, the bookings list, and actions (cancel a booking, delete the slot). One button copies last week's whole plan into the current week. A preceptor's slots can never overlap each other; back-to-back is allowed.
+
+## How it works
+
+- Week view: `GET /api/preceptor/week?weekStart=<ISO>&weekEnd=<ISO>` returns the slots in [weekStart, weekEnd) with bookings and visibility lists. The client computes both bounds as local Monday 00:00 using calendar arithmetic (`weekEnd` exists because across a DST change the local week is not 168 hours; the server falls back to +168h when it is absent).
+- Create: `POST /api/preceptor/slots` — client converts the local date+time to UTC before sending, and refuses past times before posting. Validation: future start, 5–240 min, capacity 1–50, restricted lists must be linked abhyasis, and **no overlap** with any existing slot of the same preceptor (409 naming the clashing slot). The check runs in a transaction that first locks the preceptor's user row (`SELECT … FOR UPDATE`), so two simultaneous creates serialize — the same pattern bookings use for capacity.
+- After a successful create the client clears any stale error and shows "Slot created: <day> · <time>". The day chips are the visible week's, so the new slot always appears right in the view — a slot created outside the visible week used to look like nothing happened while abhyasis could already book it.
+- Copy last week: `POST /api/preceptor/copy-last-week` copies the previous week's slots **+7 calendar days** (not +168 hours), skipping slots that would land in the past or overlap an existing slot (same rule as create; runs under the same preceptor lock, and sees its own earlier inserts, so copied slots cannot overlap each other either). Visibility lists are copied; bookings are not.
+- Delete slot: hard delete; bookings and visibility rows cascade. **Since Phase 2:** a slot that has already ended and still has non-cancelled bookings cannot be deleted (API 409; the popup shows "kept as history" instead of the Delete button, and the cancel dialog drops the "delete the slot" option). Future slots and empty past slots delete as before.
+- Week view also returns `ended` per slot (start + duration in the past) so the UI can apply that rule.
+
+## Decisions
+
+- **Fully flexible timing** — a start time (AM/PM) plus a changeable duration was chosen over fixed slot lengths, because preceptors' real availability varies. Default 45 min.
+- **Compact boxes + click-for-details** (UI revision, same day) — the original one-row-per-slot layout was hard to scan; boxes show only time, duration, occupancy chip, and a lock icon for restricted slots. Everything else moved to the click popup.
+- **Toolbar layout**: "Add slot" far left; week navigation far right with "Copy last week" adjacent to it (user preference).
+- **Copy preserves wall-clock time across DST** — found as a real bug on launch day (Europe's clocks changed that weekend: a 7:00 AM slot copied as 6:00 AM when adding 168 hours). Copying now adds 7 *calendar* days in the server's timezone. In local dev the server's timezone is the preceptor's own; the cloud deployment needs the preceptor's stored timezone — planned with Phase 5's timezone column.
+- **Copy skips rather than merges** — slots already present at the same start time are left untouched, so copying twice is harmless.
+- **Hard delete, not soft delete** — per requirement "slot should go away". Accepted trade-off: audit history of deleted slots is lost; emails about cancellations (Phase 5) are sent at action time, not reconstructed from rows.
+- **Past slots with bookings are protected (Phase 2)** — My Abhyasis counts "booked and ended" as a sitting, so deleting such a slot would silently erase someone's attendance and make them look lapsed. Switching all deletes to soft-cancel was considered and rejected: deleting a *future* slot loses nothing that page needs, so only the ended-with-bookings case is blocked. Known gap kept from Phase 1: when a future slot is deleted the abhyasi's booking vanishes without trace in their list; Phase 5's cancellation email covers it. See [my-abhyasis.md](my-abhyasis.md).
+- **Pre-book for regulars is specced but not in the UI yet** — it sits in Phase 5 with its booking email; pulling it forward (a "Pre-book for" picker in the Add Slot form) was proposed and is awaiting the user's decision.
+- **No overlapping slots, back-to-back allowed** (post-launch fix) — a preceptor cannot give two sittings at once, yet nothing stopped creating overlapping (or identical) slots; retries after a confusing error had silently created duplicates that only abhyasis could see. The rule compares `[start, start+duration)` intervals, so 9:00–9:45 followed by 9:45 is fine. Enforced app-side behind a per-preceptor row lock rather than a Postgres exclusion constraint: adding the constraint would fail to migrate on deployed data that already contains overlaps. Revisit with a data audit (existing duplicates must be deleted by hand) — Phase 5 candidate.
+- **Day chips of the visible week instead of a native date input** (post-launch fix) — Safari's `<input type="date">` calendar stays open after picking a day, and the click to dismiss it could land on the submit button. The chips are the seven days of the week on screen (past days disabled; a fully past week says to switch weeks), so what you see is where the slot goes and any week can be planned by navigating to it. A first cut used a fixed next-14-days row and jumped the view to the created slot's week; the user suggested tying the chips to the visible week instead, which makes the jump unnecessary — the accepted trade-off is one extra click (go to next week first) when planning ahead, which is most of the time late in a week.
+- **Start time defaults to the next quarter-hour, not 7:00 AM** (post-launch fix) — a fixed default that is usually already past turned any stray submit into "Slot must be in the future". The client also validates this before posting, and the server keeps the authoritative check.
+- **Create feedback: clear stale errors and confirm** (post-launch fix) — the success path used to leave an old error banner standing, so a successful create after a failed attempt looked like a silent failure ("preceptor sees nothing, abhyasi sees the slot"). Success now replaces the error with "Slot created: …", and the week-tied chips guarantee the slot is on screen.
+- **Week navigation uses calendar days** (post-launch fix) — `weekOffset * 168h` drifted the week start off Monday across a DST change (showing Sun–Sat weeks); navigation and the day columns now add calendar days, the same fix copy-last-week already had.
+
+## Future
+
+- Recurring availability rules ("every Monday 7–8 am" in the preceptor's timezone) — Phase 2+ of PLAN.md.
+- Publish-week batched announcement emails — Phase 5.

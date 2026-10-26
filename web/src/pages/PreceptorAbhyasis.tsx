@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Check, Copy, Mail, Settings2, X } from 'lucide-react';
+import { Check, Copy, Mail, Settings2, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import {
+  CLERK_ENABLED,
   api,
+  type AbhyasiInviteResult,
   fmtDate,
   fmtTime,
   periodAnchors,
@@ -24,7 +26,7 @@ const STATUS: Record<RegularityStatus, { label: string; style: string; hint: str
 
 function weekLabel(c: WeekCell) {
   const d = new Date(c.start);
-  const end = new Date(d.getTime() + 6 * 86400000);
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6); // calendar days: +6*24h drifts across DST
   const range = `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
   const parts = [];
   if (c.mine) parts.push(`${c.mine} with you`);
@@ -65,6 +67,8 @@ function StatTile({ label, value }: { label: string; value: number }) {
 export default function PreceptorAbhyasis() {
   const qc = useQueryClient();
   const [showSettings, setShowSettings] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [note, setNote] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -99,13 +103,37 @@ export default function PreceptorAbhyasis() {
             {data && needAttention > 0 && <> <span className="font-medium text-amber-800">{needAttention} to follow up.</span></>}
           </p>
         </div>
-        <button
-          className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium hover:bg-stone-100"
-          onClick={() => setShowSettings((s) => !s)}
-        >
-          <Settings2 className="h-4 w-4" /> Settings
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
+            onClick={() => setShowInvite((s) => !s)}
+          >
+            <UserPlus className="h-4 w-4" /> Invite abhyasi
+          </button>
+          <button
+            className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium hover:bg-stone-100"
+            onClick={() => setShowSettings((s) => !s)}
+          >
+            <Settings2 className="h-4 w-4" /> Settings
+          </button>
+        </div>
       </div>
+
+      {showInvite && (
+        <InvitePanel
+          onDone={(message) => {
+            setNote(message);
+            setShowInvite(false);
+            qc.invalidateQueries({ queryKey: ['abhyasiOverview'] });
+          }}
+          onError={(e) => setNote(e.message)}
+        />
+      )}
+      {note && (
+        <p className="cursor-pointer rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" onClick={() => setNote('')}>
+          {note}
+        </p>
+      )}
 
       {error && (
         <p className="cursor-pointer rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" onClick={() => setError('')}>
@@ -210,6 +238,51 @@ export default function PreceptorAbhyasis() {
         />
       )}
     </div>
+  );
+}
+
+function InvitePanel({ onDone, onError }: { onDone: (message: string) => void; onError: (e: Error) => void }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const invite = useMutation({
+    mutationFn: () => api<AbhyasiInviteResult>('/api/preceptor/invites', { method: 'POST', body: JSON.stringify({ name, email }) }),
+    onSuccess: (r) => {
+      const who = email.trim();
+      if (r.created) {
+        onDone(r.invited ? `Invitation email sent to ${who}.` : `${who} added and linked to you. No email goes out in local no-login mode.`);
+      } else if (r.linked) {
+        onDone(`${who} is already on the app — now linked to you.${r.invited ? ' Their invitation email was resent.' : ''}`);
+      } else {
+        onDone(`${who} is already linked to you.${r.invited ? ' Their invitation email was resent.' : ''}`);
+      }
+    },
+    onError,
+  });
+  return (
+    <form
+      className="flex flex-wrap items-end gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        invite.mutate();
+      }}
+    >
+      <label className="text-sm">
+        <span className="mb-1 block font-medium">Name</span>
+        <input required value={name} onChange={(e) => setName(e.target.value)} className="w-44 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+      </label>
+      <label className="text-sm">
+        <span className="mb-1 block font-medium">Email</span>
+        <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-60 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+      </label>
+      <button type="submit" disabled={invite.isPending} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50">
+        Invite
+      </button>
+      <p className="basis-full text-xs text-stone-500">
+        {CLERK_ENABLED
+          ? 'A new person gets an invitation email and is linked to you when they accept. Someone already on the app is just linked — no new account, no email.'
+          : 'Local no-login mode: accounts and links are created, but no email is sent.'}
+      </p>
+    </form>
   );
 }
 

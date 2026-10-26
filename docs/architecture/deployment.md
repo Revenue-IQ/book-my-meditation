@@ -2,9 +2,10 @@
 
 Status: built 2026-10-24 · Last updated: 2026-10-24
 
-> **Note: this setup is interim.** It will be reworked when real Clerk authentication, a proper
-> domain, and HTTPS land (Phase 4+). Until then the public deployment runs in no-login demo mode
-> on a bare IP. Treat the decisions below as serving that interim state, not as final answers.
+> **Note: still interim, but with real auth.** Phase 4 switched the deployment to Clerk sign-in
+> (`AUTH_MODE=clerk`, `NODE_ENV=production`) on a **development Clerk instance** — no domain or
+> HTTPS yet, still a bare IP. The remaining rework (domain, TLS, production Clerk keys, managed
+> Postgres) comes with Phase 6+.
 
 ## What it does
 
@@ -44,7 +45,10 @@ pushes `ghcr.io/revenue-iq/book-my-meditation` (`latest` + commit SHA tags, GHA 
 `deploy` job SCPs the compose file to the instance and over SSH writes the server-side `.env`,
 logs into GHCR with the workflow's `GITHUB_TOKEN`, then `docker compose pull && up -d`. Secrets
 (all in GitHub Actions, none in the repo): `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`,
-`LIGHTSAIL_SSH_KEY`, `POSTGRES_PASSWORD`.
+`LIGHTSAIL_SSH_KEY`, `POSTGRES_PASSWORD`, and since Phase 4 `CLERK_SECRET_KEY`, `ADMIN_EMAIL`,
+`APP_URL` (written to the server `.env`) plus `VITE_CLERK_PUBLISHABLE_KEY` (a build arg — the
+publishable key is public and gets baked into the web bundle at image build time, because Vite
+env vars are build-time).
 
 **Server debugging without local access** ([`.github/workflows/debug.yml`](../../.github/workflows/debug.yml)):
 a manually-triggered workflow that SSHes in with the same secrets and prints `docker ps`,
@@ -67,12 +71,14 @@ file.
 - **Postgres as a container on the same instance, not a Lightsail managed database** — fastest
   to provision, free with the instance, and durable enough via the named volume. Managed DB is
   the obvious upgrade when the deployment stops being interim.
-- **`NODE_ENV` deliberately NOT set to `production` in the image** — the code hard-refuses to
-  start with `AUTH_MODE=local` under `NODE_ENV=production` (a safety rule from the spec). The
-  public demo intentionally runs the no-login role-switcher, so the image leaves `NODE_ENV`
-  unset. **Flip this when Clerk lands**: set `NODE_ENV=production` and `AUTH_MODE=clerk`.
-- **Seed only when the database is empty, never on every boot** — the seed is destructive
-  (wipes all rows); a restart or redeploy must never reset live/demo data mid-use.
+- **`NODE_ENV=production` + `AUTH_MODE=clerk` live in the compose file, not the image** (Phase 4;
+  previously both were unset for the no-login demo). The image stays mode-neutral: the same image
+  runs locally in no-login mode. The code still hard-refuses `AUTH_MODE=local` under
+  `NODE_ENV=production` (safety rule from the spec).
+- **Seed only when the database is empty AND `AUTH_MODE=local`** — the seed is destructive (wipes
+  all rows) and demo users are meaningless behind real login, so since Phase 4 a clerk-mode boot
+  never seeds: a fresh production database starts empty and fills via the `ADMIN_EMAIL` bootstrap
+  and invitations (see docs/features/accounts-and-invitations.md).
 - **API runs under `tsx` in production** — avoids adding a build/compile step for the API;
   acceptable for the interim deployment, revisit if cold-start or memory matters later.
 - **Plain HTTP on a bare static IP, no domain/TLS** — deferred with the Clerk/domain work. Until
@@ -82,8 +88,10 @@ file.
 
 ## Future
 
-- **Phase 4+ rework (the note above)**: Clerk authentication (`AUTH_MODE=clerk`,
-  `NODE_ENV=production`), a real domain, HTTPS (Caddy/nginx or a load balancer), and likely a
-  managed Postgres. The CI pipeline itself can stay; the image env, compose file, and instance
+- **Remaining rework (the note above)**: a real domain, HTTPS (Caddy/nginx or a load balancer),
+  swapping the development Clerk instance for a production one (new keys + Clerk domain config),
+  and likely a managed Postgres. The CI pipeline itself can stay; env values and the instance
   front-end are what change.
+- The old no-login public demo is gone — the deployed site now requires sign-in. Demo/testing
+  stays local (`AUTH_MODE=local`).
 - The debug workflow is a stopgap; with a domain + proper access, normal observability replaces it.

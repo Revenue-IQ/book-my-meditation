@@ -15,7 +15,7 @@ Finalized: 2026-10-24. App: preceptors post meditation availability slots, Abhya
 - **Hono** ~4.12 with `@hono/node-server` — HTTP framework
 - **Drizzle ORM** ~0.45 + drizzle-kit — schema is source of truth, migrations generated
 - **PostgreSQL** via `pg` driver (chosen over SQLite; no migration needed later)
-- **Clerk** (`@clerk/backend`) for auth — role carried in user `publicMetadata`
+- **Clerk** (`@clerk/backend`) for auth — identity only; roles live in our `users` table (revised in Phase 4 from the original publicMetadata idea, see docs/features/accounts-and-invitations.md)
 - **Resend** (or Postmark) for transactional email — added in notifications phase
 - node-cron — only when reminder emails are built (not before)
 - tsx for dev (`tsx watch`), Vitest for unit tests
@@ -45,7 +45,7 @@ Finalized: 2026-10-24. App: preceptors post meditation availability slots, Abhya
 
 ## Key Decisions
 
-- **Roles**: `admin`, `preceptor`, `abhyasi` — stored in Clerk `publicMetadata`. Admin assigns Abhyasis to preceptors; Abhyasis only see slots from their assigned preceptor(s).
+- **Roles**: `admin`, `preceptor`, `abhyasi` — stored in our `users` table (Clerk proves identity; accounts are created by invitation before any sign-in exists). Abhyasis only see slots from their linked preceptor(s).
 - **Multi-preceptor from day one**: every slot row stores its preceptor; assignment table links Abhyasis to preceptors. Start with more than 1 preceptor in mind.
 - **Local dev without login**: env flag (e.g. `AUTH_MODE=local`) skips Clerk entirely, injects a built-in test user with an on-screen role switcher (admin/preceptor/abhyasi). Hard-fails in production builds so it can never leak to cloud. Cloud deployments always use real Clerk login.
 - **Timezones**: all timestamps stored in UTC; UI shows each user their local time. Recurring availability rules ("every Monday 7–8am") store the preceptor's timezone (DST handling); concrete slots generated from rules are saved in UTC.

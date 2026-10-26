@@ -1,4 +1,15 @@
-// Tiny API client. In local no-login mode the selected user travels as x-user-id.
+// Tiny API client. With Clerk the session token travels as a Bearer header; in local
+// no-login mode the selected user travels as x-user-id instead.
+
+/** Clerk is on when the build has a publishable key; otherwise local no-login mode. */
+export const CLERK_ENABLED = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+
+let getAuthToken: (() => Promise<string | null>) | null = null;
+/** Registered once by the Clerk shell so the plain api() function can fetch fresh session tokens. */
+export function setAuthTokenGetter(fn: () => Promise<string | null>) {
+  getAuthToken = fn;
+}
+
 export function getDevUserId(): string | null {
   try {
     return localStorage.getItem('devUserId');
@@ -16,11 +27,13 @@ export function setDevUserId(id: string) {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = CLERK_ENABLED ? await getAuthToken?.() : null;
   const res = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(getDevUserId() ? { 'x-user-id': getDevUserId()! } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(!CLERK_ENABLED && getDevUserId() ? { 'x-user-id': getDevUserId()! } : {}),
       ...options.headers,
     },
   });
@@ -78,6 +91,11 @@ export type MyBooking = {
   preceptorName: string;
   confirmWindowOpen: boolean;
 };
+
+// ---- Accounts & invitations (Phase 4) ----
+
+export type InviteResult = { created: boolean; invited: boolean };
+export type AbhyasiInviteResult = InviteResult & { linked: boolean };
 
 // ---- My Abhyasis (Phase 2) ----
 

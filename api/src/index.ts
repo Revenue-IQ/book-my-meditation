@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { createPreceptor, inviteAbhyasi } from './accounts.js';
 import { auth, requireRole, type AuthEnv } from './auth.js';
 import { db } from './db/client.js';
 import { preceptorAbhyasiLinks, users } from './db/schema.js';
@@ -39,7 +40,9 @@ app.get('/api/preceptor/week', async (c) => {
   requireRole(c.get('user'), 'preceptor');
   const weekStart = new Date(c.req.query('weekStart') ?? '');
   if (Number.isNaN(weekStart.getTime())) throw new AppError('weekStart (ISO) is required');
-  return c.json(await listWeek(c.get('user').id, weekStart));
+  // Optional: the client's local end of week, which differs from +168h across a DST change.
+  const weekEnd = new Date(c.req.query('weekEnd') ?? '');
+  return c.json(await listWeek(c.get('user').id, weekStart, Number.isNaN(weekEnd.getTime()) ? undefined : weekEnd));
 });
 
 app.get('/api/preceptor/abhyasis', async (c) => {
@@ -103,6 +106,13 @@ app.post('/api/preceptor/copy-last-week', async (c) => {
   const weekStart = new Date(body.weekStart);
   if (Number.isNaN(weekStart.getTime())) throw new AppError('weekStart (ISO) is required');
   return c.json(await copyLastWeek(c.get('user').id, weekStart));
+});
+
+// Invite an abhyasi by email: new person gets an account + link + invitation email;
+// an existing abhyasi is linked only (see accounts.ts).
+app.post('/api/preceptor/invites', async (c) => {
+  requireRole(c.get('user'), 'preceptor');
+  return c.json(await inviteAbhyasi(c.get('user').id, await c.req.json()), 201);
 });
 
 app.post('/api/preceptor/bookings/:id/cancel', async (c) => {
@@ -179,6 +189,12 @@ app.get('/api/admin/overview', async (c) => {
       abhyasis: links.filter((l) => l.preceptorId === p.id).map((l) => ({ id: l.abhyasiId, name: l.abhyasiName, email: l.abhyasiEmail })),
     })),
   );
+});
+
+// Create a preceptor account and send its Clerk invitation email.
+app.post('/api/admin/preceptors', async (c) => {
+  requireRole(c.get('user'), 'admin');
+  return c.json(await createPreceptor(c.get('user').id, await c.req.json()), 201);
 });
 
 // Production container: the web build is copied to ./public (see Dockerfile). In dev the

@@ -20,9 +20,11 @@ await migrate(db, { migrationsFolder: './drizzle' });
 console.log('Migrations applied.');
 
 // Seed demo data only when the database is empty — the seed script wipes all rows,
-// so it must never run against a database that already has real bookings.
+// so it must never run against a database that already has real bookings. With real
+// auth (AUTH_MODE=clerk) a fresh database stays clean: the first admin bootstraps via
+// ADMIN_EMAIL (see auth.ts) and everyone else arrives by invitation.
 const { rows } = await db.execute(sql`select count(*)::int as n from heartfulness_sitting.users`);
-if ((rows[0] as { n: number }).n === 0) {
+if (process.env.AUTH_MODE === 'local' && (rows[0] as { n: number }).n === 0) {
   console.log('Empty database — seeding demo data.');
   // seed.ts closes its own pool, so it runs as a subprocess.
   execFileSync('npx', ['tsx', 'src/db/seed.ts'], { stdio: 'inherit' });
