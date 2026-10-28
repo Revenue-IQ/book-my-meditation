@@ -7,6 +7,7 @@ import {
   preceptorPref,
   slots,
   slotVisibility,
+  userFullName,
   users,
 } from '../db/schema.js';
 import { AppError } from './errors.js';
@@ -15,11 +16,11 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function listLinkedAbhyasis(preceptorId: string) {
   return db
-    .select({ id: users.id, name: users.name, email: users.email })
+    .select({ id: users.id, name: userFullName, email: users.email })
     .from(preceptorAbhyasiLinks)
     .innerJoin(users, eq(users.id, preceptorAbhyasiLinks.abhyasiId))
     .where(eq(preceptorAbhyasiLinks.preceptorId, preceptorId))
-    .orderBy(asc(users.name));
+    .orderBy(asc(userFullName));
 }
 
 /**
@@ -53,7 +54,7 @@ export async function listWeek(preceptorId: string, weekStart: Date, weekEnd = n
           status: bookings.status,
           cancelledBy: bookings.cancelledBy,
           abhyasiId: bookings.abhyasiId,
-          abhyasiName: users.name,
+          abhyasiName: userFullName,
         })
         .from(bookings)
         .innerJoin(users, eq(users.id, bookings.abhyasiId))
@@ -61,7 +62,7 @@ export async function listWeek(preceptorId: string, weekStart: Date, weekEnd = n
     : [];
   const visibilityRows = slotIds.length
     ? await db
-        .select({ slotId: slotVisibility.slotId, abhyasiId: slotVisibility.abhyasiId, name: users.name })
+        .select({ slotId: slotVisibility.slotId, abhyasiId: slotVisibility.abhyasiId, name: userFullName })
         .from(slotVisibility)
         .innerJoin(users, eq(users.id, slotVisibility.abhyasiId))
         .where(inArray(slotVisibility.slotId, slotIds))

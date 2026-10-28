@@ -1,10 +1,12 @@
 # Roles and Access
 
-Status: built in Phase 1; real accounts added in Phase 4 — see [accounts-and-invitations.md](accounts-and-invitations.md) · Last updated: 2026-10-25
+Status: built in Phase 1; real accounts added in Phase 4 — see [accounts-and-invitations.md](accounts-and-invitations.md); preceptors-as-abhyasis added post-Phase 5 · Last updated: 2026-10-26
 
 ## What it does
 
 Three roles: **admin** (creates preceptor accounts — their only job), **preceptor** (plans slots, manages bookings, invites abhyasis), **abhyasi** (books visible slots). An abhyasi can be linked to multiple preceptors and sees slots from all of them. A slot is visible to all of its preceptor's linked abhyasis by default, or restricted to chosen ones.
+
+**Preceptors are abhyasis too.** A preceptor can be linked (by invitation, like anyone else) as an abhyasi of another preceptor, and then books sittings, confirms attendance and does the daily mood check-in exactly like an abhyasi. Their role stays `preceptor`; nothing about their own practice changes. Admin does not get this — admin remains purely administrative.
 
 ## How it works
 
@@ -17,11 +19,19 @@ Three roles: **admin** (creates preceptor accounts — their only job), **precep
 
 | Role | Pages |
 |---|---|
-| preceptor | This week · [My Abhyasis](my-abhyasis.md) · [Community](community-mood.md) |
+| preceptor | This week · [My Abhyasis](my-abhyasis.md) · My sittings · [Check-in](mood-check-in.md) · [Community](community-mood.md) |
 | abhyasi | Sittings · [Check-in](mood-check-in.md) · Community |
 | admin | Overview · Community |
 
-Role gates are enforced in the API (`requireRole`), not only by routing: a preceptor calling the personal check-in endpoint gets 403; the community endpoint is the only mood data any non-owner can read, and it returns aggregates only.
+The preceptor nav is a merged nav: their own preceptor pages plus the abhyasi pages ("My sittings", "Check-in"), which are the same components the abhyasi role uses — no separate screens, no mode switcher.
+
+Role gates are enforced in the API (`requireRole` for exact-role routes, `requireAbhyasi` for the abhyasi side, which accepts abhyasi **or** preceptor), not only by routing: an admin calling an abhyasi endpoint gets 403; the community endpoint is the only mood data any non-owner can read, and it returns aggregates only.
+
+### Preceptor-as-abhyasi guardrails
+
+- A preceptor cannot invite/link **themselves** (refused at invite time), and `bookSlot` independently refuses booking your own slot as a backstop.
+- Inviting an existing **preceptor's** email links them without touching their role or account; inviting an **admin's** email is refused.
+- A linked fellow preceptor shows up on "My Abhyasis" like anyone else (regularity only — mood stays private), but their name/email are **not editable** by the linking preceptor (they manage their own account); unlinking works normally.
 
 ## Decisions
 
@@ -29,6 +39,7 @@ Role gates are enforced in the API (`requireRole`), not only by routing: a prece
 - **Multi-preceptor links from day one** — the link table costs nothing now and avoids a painful migration when preceptor #2 arrives.
 - **No-login local dev** (user requirement) — Clerk only on cloud deployments. The role switcher doubles as the demo device.
 - **Default visibility is "everyone"** with per-slot restriction, per requirements.
+- **Preceptors-as-abhyasis via capability, not multi-role** (2026-10-26) — in Heartfulness every preceptor is also a practising abhyasi, so the abhyasi side is simply open to the preceptor role (`requireAbhyasi`). Rejected: a multi-role set or role-per-link on `users` — needless schema and auth rework when the business logic was already keyed by user id, not role, and bookability is already governed by the link table. Consequence: a preceptor's check-ins join the community aggregate like anyone's; no per-person mood is ever exposed, so no new privacy surface.
 
 ## Future
 

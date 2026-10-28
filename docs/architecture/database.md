@@ -8,7 +8,7 @@ Postgres, schema **`heartfulness_sitting`** inside the local `postgres` database
 
 | Table | Phase | Purpose |
 |---|---|---|
-| `users` | 1 | id, name, email, role (admin/preceptor/abhyasi) |
+| `users` | 1 (names split + `deactivated_at` in 5) | id, first_name, last_name (nullable), email, role (admin/preceptor/abhyasi), clerk_user_id, deactivated_at (null = active; preceptor soft delete — see [User management](../features/user-management.md)) |
 | `preceptor_pref` | 1, 2 | per-preceptor settings: `reminder_lead_hours` (default 8); Phase 2 added `history_weeks` (default 8) and `not_seen_weeks` (default 3) for My Abhyasis |
 | `preceptor_abhyasi_links` | 1 | who is linked to whom (composite PK); `insert_time` doubles as "linked since" for the My Abhyasis "New" status |
 | `slots` | 1 | preceptor_id, start_at (UTC), duration_minutes, capacity, visibility |

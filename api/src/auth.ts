@@ -25,6 +25,7 @@ export const clerk = authMode === 'clerk' ? createClerkClient({ secretKey: secre
 export const auth = createMiddleware<AuthEnv>(async (c, next) => {
   const user = authMode === 'local' ? await localUser(c.req.header('x-user-id')) : await clerkUser(c.req.header('authorization'));
   if (typeof user === 'object') {
+    if (user.deactivatedAt) return c.json({ error: 'No account: this account was deactivated' }, 403);
     c.set('user', user);
     return next();
   }
@@ -72,8 +73,10 @@ async function bindClerkAccount(clerkUserId: string): Promise<AuthUser | string>
   // Bootstrap: the configured admin email creates its own admin account on first sign-in.
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   if (adminEmail && email === adminEmail) {
-    const name = [account.firstName, account.lastName].filter(Boolean).join(' ') || 'Admin';
-    await db.insert(users).values({ name, email, role: 'admin', clerkUserId }).onConflictDoNothing();
+    await db
+      .insert(users)
+      .values({ firstName: account.firstName || 'Admin', lastName: account.lastName || null, email, role: 'admin', clerkUserId })
+      .onConflictDoNothing();
     const [admin] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId));
     if (admin) return admin;
   }
@@ -84,6 +87,16 @@ async function bindClerkAccount(clerkUserId: string): Promise<AuthUser | string>
 export function requireRole(user: AuthUser, role: AuthUser['role']) {
   if (user.role !== role) {
     const err = new Error(`Only a ${role} can do this`) as Error & { status?: number };
+    err.status = 403;
+    throw err;
+  }
+}
+
+// Preceptors are abhyasis too: they take sittings from other preceptors, so the whole
+// abhyasi side (slots, bookings, check-ins) is open to both roles. Admin stays out.
+export function requireAbhyasi(user: AuthUser) {
+  if (user.role !== 'abhyasi' && user.role !== 'preceptor') {
+    const err = new Error('Only an abhyasi can do this') as Error & { status?: number };
     err.status = 403;
     throw err;
   }

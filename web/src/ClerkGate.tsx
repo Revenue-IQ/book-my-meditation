@@ -3,7 +3,6 @@
 // build has VITE_CLERK_PUBLISHABLE_KEY; local dev never reaches this file.
 import { SignIn, SignOutButton, SignUp, SignedIn, SignedOut, UserButton, useAuth } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
-import { Flower2 } from 'lucide-react';
 import { Route, Routes } from 'react-router-dom';
 import { Shell } from './App';
 import { api, setAuthTokenGetter, type Me } from './api';
@@ -31,7 +30,7 @@ function Welcome({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10">
       <div className="flex items-center gap-2">
-        <Flower2 className="h-7 w-7 text-emerald-700" />
+        <img src="/logo.png" alt="" className="h-24 w-24 rounded-3xl" />
         <h1 className="text-xl font-semibold">Heartfulness Sittings</h1>
       </div>
       {children}

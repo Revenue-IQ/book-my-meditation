@@ -1,5 +1,5 @@
 // Booking business logic. No HTTP, no auth imports — testable on its own.
-import { and, asc, eq, gt, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import {
   bookings,
@@ -7,6 +7,7 @@ import {
   preceptorPref,
   slots,
   slotVisibility,
+  userFullName,
   users,
 } from '../db/schema.js';
 
@@ -27,7 +28,7 @@ export async function listVisibleSlots(abhyasiId: string) {
       capacity: slots.capacity,
       visibility: slots.visibility,
       preceptorId: slots.preceptorId,
-      preceptorName: users.name,
+      preceptorName: userFullName,
       activeBookings: sql<number>`(select count(*)::int from ${bookings} b
         where b.slot_id = ${slots.id} and b.status <> 'cancelled')`,
       myBookingId: sql<string | null>`(select b.id from ${bookings} b
@@ -46,6 +47,7 @@ export async function listVisibleSlots(abhyasiId: string) {
     .where(
       and(
         gt(slots.startAt, new Date()),
+        isNull(users.deactivatedAt), // a deactivated preceptor's slots are invisible
         sql`(${slots.visibility} = 'all' or exists (select 1 from ${slotVisibility} sv
           where sv.slot_id = ${slots.id} and sv.abhyasi_id = ${abhyasiId}))`,
       ),
@@ -70,12 +72,17 @@ export async function bookSlot(slotId: string, abhyasiId: string) {
     const [slot] = await tx.select().from(slots).where(eq(slots.id, slotId)).for('update');
     if (!slot) throw new AppError('Slot not found', 404);
     if (slot.startAt.getTime() <= Date.now()) throw new AppError('This slot is in the past');
+    // Self-links are refused at invite time; this backstops any other path to one.
+    if (slot.preceptorId === abhyasiId) throw new AppError('You cannot book your own slot');
 
     const [link] = await tx
       .select()
       .from(preceptorAbhyasiLinks)
       .where(and(eq(preceptorAbhyasiLinks.preceptorId, slot.preceptorId), eq(preceptorAbhyasiLinks.abhyasiId, abhyasiId)));
     if (!link) throw new AppError('You are not linked to this preceptor', 403);
+
+    const [preceptor] = await tx.select().from(users).where(eq(users.id, slot.preceptorId));
+    if (!preceptor || preceptor.deactivatedAt) throw new AppError('This preceptor is no longer available', 403);
 
     if (slot.visibility === 'restricted') {
       const [vis] = await tx
@@ -108,7 +115,7 @@ export async function listMyBookings(abhyasiId: string) {
       slotId: slots.id,
       startAt: slots.startAt,
       durationMinutes: slots.durationMinutes,
-      preceptorName: users.name,
+      preceptorName: userFullName,
       reminderLeadHours: preceptorPref.reminderLeadHours,
     })
     .from(bookings)

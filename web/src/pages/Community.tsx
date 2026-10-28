@@ -1,10 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
-import PracticeTable from '../components/PracticeTable';
-import { api, localDay, MOODS, type CommunityStats } from '../api';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { lazy, Suspense, useState } from 'react';
+import Stars from '../components/Stars';
+import { api, localDay, MOODS, tzMinutes, type CommunityStats, type RangeDays } from '../api';
+
+// Recharts is ~400 kB minified; load it only when this page actually shows the graph.
+const MoodPracticeChart = lazy(() => import('../components/MoodPracticeChart'));
 
 export default function Community() {
   const today = localDay();
-  const q = useQuery({ queryKey: ['community', today], queryFn: () => api<CommunityStats>(`/api/community/mood?today=${today}`) });
+  const [days, setDays] = useState<RangeDays>(30);
+  // keepPreviousData: switching the range keeps the old stats on screen (and the chart
+  // mounted, so its practice selection survives) until the new window arrives.
+  const q = useQuery({
+    queryKey: ['community', today, days],
+    queryFn: () => api<CommunityStats>(`/api/community/mood?today=${today}&days=${days}&tz=${tzMinutes()}`),
+    placeholderData: keepPreviousData,
+  });
   const d = q.data;
 
   return (
@@ -12,7 +23,7 @@ export default function Community() {
       <div>
         <h2 className="text-base font-semibold">Community mood</h2>
         <p className="text-sm text-stone-500">
-          Across all abhyasis and all preceptors, last 30 days. Only averages are shown. Nobody can see an individual's check-ins.
+          Across all abhyasis and all preceptors. Only averages are shown. Nobody can see an individual's check-ins.
         </p>
       </div>
 
@@ -27,7 +38,12 @@ export default function Community() {
           <div className="grid grid-cols-3 gap-3">
             <Tile label="People checking in" value={String(d.people)} />
             <Tile label="Check-ins" value={String(d.checkins)} />
-            <Tile label="Average mood" value={`${d.avgMood} / 5`} />
+            <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+              <Stars value={d.avgMood} className="mt-1" />
+              <div className="mt-1 text-xs text-stone-500">
+                Average mood <span className="ml-1 tabular-nums">({d.avgMood} / 5)</span>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
@@ -49,7 +65,15 @@ export default function Community() {
             </div>
           </div>
 
-          <PracticeTable stats={d.practices} minDays={3} who="people" />
+          <Suspense fallback={<div className="h-80 rounded-xl border border-stone-200 bg-white shadow-sm" />}>
+            <MoodPracticeChart
+              source={{ kind: 'people', series: d.series }}
+              days={days}
+              setDays={setDays}
+              practices={d.practices}
+              sittings={d.sittings}
+            />
+          </Suspense>
         </>
       )}
     </div>

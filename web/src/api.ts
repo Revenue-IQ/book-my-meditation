@@ -106,6 +106,8 @@ export type Prefs = { reminderLeadHours: number; historyWeeks: number; notSeenWe
 export type AbhyasiRow = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string | null;
   email: string;
   linkedAt: string;
   status: RegularityStatus;
@@ -174,28 +176,58 @@ export const MOODS = [
   { value: 5, label: 'Great', file: '/emoji/1f604.webp', glyph: '😄' },
 ] as const;
 
-export type PracticeStat = {
-  practice: Practice;
+/** Mood after doing vs not doing some thing; delta null until both groups have 3 days. */
+export type MoodComparison = {
   doneDays: number;
   notDoneDays: number;
   avgMoodAfterDone: number | null;
   avgMoodAfterNotDone: number | null;
   delta: number | null;
-  consistency: number;
 };
+export type PracticeStat = MoodComparison & { practice: Practice; consistency: number };
+/** Window sizes the check-in page can ask the API for. */
+export const RANGES = [
+  { days: 7, label: '7 days' },
+  { days: 30, label: '30 days' },
+  { days: 90, label: '3 months' },
+  { days: 180, label: '6 months' },
+  { days: 365, label: '1 year' },
+] as const;
+export type RangeDays = (typeof RANGES)[number]['days'];
+
+export type CheckinDay = { day: string; mood: number; practices: Practice[] };
 export type PersonalStats = {
   days: number;
   checkins: number;
   avgMood: number | null;
   streak: number;
-  strip: { day: string; mood: number }[];
+  /** Every check-in in the window, day order. `practices` were done the day before `day`. */
+  series: CheckinDay[];
   practices: PracticeStat[];
+  /** Attended sittings: their local days (incl. one day before the window) + mood impact. */
+  sittings: MoodComparison & { days: string[] };
 };
 export type TodayCheckin = { day: string; mood: number; practices: Practice[] } | null;
 export type CheckinPage = { today: TodayCheckin; stats: PersonalStats };
+/** One already-aggregated community day; avgMood/done/practiceTotal are null (suppressed)
+ *  on days with too few check-ins for an average to be anonymous. */
+export type CommunityDay = { day: string; checkins: number; avgMood: number | null; done: number[] | null; practiceTotal: number | null; sittings: number };
 export type CommunityStats =
   | { available: false; people: number; needed: number }
-  | { available: true; days: number; people: number; checkins: number; avgMood: number; moodShare: number[]; practices: PracticeStat[] };
+  | {
+      available: true;
+      days: number;
+      people: number;
+      checkins: number;
+      avgMood: number;
+      moodShare: number[];
+      practices: PracticeStat[];
+      sittings: MoodComparison;
+      series: CommunityDay[];
+    };
+
+/** Minutes to add to UTC to get this browser's local time (the API's `tz` parameter). */
+export const tzMinutes = () => -new Date().getTimezoneOffset();
 
 /** The browser's local calendar date as YYYY-MM-DD. */
 export function localDay(d = new Date()): string {

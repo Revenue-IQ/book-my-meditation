@@ -6,13 +6,14 @@ Feature docs record what each capability does, how it works, and **why** it is t
 
 | Doc | Phase | One line |
 |---|---|---|
-| [Roles and access](features/roles-and-access.md) | 1 | admin / preceptor / abhyasi, multi-preceptor links, slot visibility, local no-login mode, pages per role |
+| [Roles and access](features/roles-and-access.md) | 1 | admin / preceptor / abhyasi, multi-preceptor links, slot visibility, local no-login mode, pages per role; preceptors are abhyasis too (bookable with other preceptors) |
 | [Slot planning](features/slot-planning.md) | 1 (+2) | preceptor adds slots (AM/PM, duration, capacity, visibility), copies last week across DST; past slots with bookings can't be deleted |
 | [Booking](features/booking.md) | 1 | abhyasi books instantly, cancels any time; capacity enforced by a row lock; freed spots reopen silently |
 | [Attendance confirmation](features/attendance-confirmation.md) | 1 | "I'm coming" gated to the reminder window; coming / no reply / planned / cancelled chips |
 | [My Abhyasis](features/my-abhyasis.md) | 2 | preceptor's regularity view: week dot grid, Not seen / Slipping / Active / New, history, settings, stat strip, history protection |
-| [Mood check-in](features/mood-check-in.md) | 2b | abhyasi's one-tap daily mood plus yesterday's practices, personal 30-day stats, strict privacy |
-| [Community mood](features/community-mood.md) | 2b | anonymous aggregate across all preceptors, every role, hidden below 5 people |
+| [Mood check-in](features/mood-check-in.md) | 2b | abhyasi's one-tap daily mood plus yesterday's practices, streak + stars + mood×practice/sitting graph (7d–1y), strict privacy |
+| [Community mood](features/community-mood.md) | 2b | anonymous aggregate across all preceptors, every role, hidden below 5 people, same graph with per-day suppression |
+| [User management](features/user-management.md) | 5 | first/last name split; preceptor edits + unlinks abhyasis; admin edits, deactivates preceptors, hard-deletes anyone; Clerk-or-error email changes |
 
 ## Architecture
 

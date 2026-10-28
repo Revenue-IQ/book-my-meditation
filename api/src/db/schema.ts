@@ -28,14 +28,20 @@ const audit = {
 
 export const users = app.table('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
+  firstName: text('first_name').notNull(),
+  lastName: text('last_name'),
   email: text('email').notNull().unique(),
   role: roleEnum('role').notNull(),
   // Clerk account bound to this user (Phase 4). Null until first sign-in: rows are created
   // by invitation (admin/preceptor) and matched to the Clerk account by email, then bound here.
   clerkUserId: text('clerk_user_id').unique(),
+  // Soft delete (preceptors): blocks sign-in and hides their slots, keeps all history.
+  deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
   ...audit,
 });
+
+/** Display name, composed in SQL so lists can select and sort by it. */
+export const userFullName = sql<string>`trim(${users.firstName} || ' ' || coalesce(${users.lastName}, ''))`;
 
 // reminder_lead_hours lives here, not on users: it is preceptor configuration.
 // Phase 5 adds email send/receive toggles to this table, and a new abhyasi_pref table.

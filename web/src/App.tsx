@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Flower2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { CLERK_ENABLED, api, getDevUserId, setDevUserId, type DevUser, type Me } from './api';
@@ -13,9 +12,12 @@ import PreceptorWeek from './pages/PreceptorWeek';
 
 const roleHome: Record<string, string> = { admin: '/admin', preceptor: '/preceptor', abhyasi: '/abhyasi' };
 const navFor: Record<string, { to: string; label: string }[]> = {
+  // Preceptors are abhyasis too: their nav merges both sides (book sittings with their own preceptors).
   preceptor: [
     { to: '/preceptor', label: 'This week' },
     { to: '/preceptor/abhyasis', label: 'My Abhyasis' },
+    { to: '/abhyasi', label: 'My sittings' },
+    { to: '/abhyasi/checkin', label: 'Check-in' },
     { to: '/community', label: 'Community' },
   ],
   abhyasi: [
@@ -41,7 +43,7 @@ export function Shell({ me, headerRight }: { me: Me; headerRight: ReactNode }) {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 py-4">
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
-            <Flower2 className="h-6 w-6 text-emerald-700" />
+            <img src="/logo.png" alt="" className="h-[72px] w-[72px] rounded-2xl" />
             <h1 className="text-lg font-semibold">Heartfulness Sittings</h1>
           </div>
           <nav className="flex gap-1 text-sm" aria-label="Pages">
@@ -66,8 +68,8 @@ export function Shell({ me, headerRight }: { me: Me; headerRight: ReactNode }) {
         <Route path="/" element={<Navigate to={roleHome[me.role]} replace />} />
         <Route path="/preceptor" element={me.role === 'preceptor' ? <PreceptorWeek /> : <Navigate to="/" replace />} />
         <Route path="/preceptor/abhyasis" element={me.role === 'preceptor' ? <PreceptorAbhyasis /> : <Navigate to="/" replace />} />
-        <Route path="/abhyasi" element={me.role === 'abhyasi' ? <AbhyasiHome /> : <Navigate to="/" replace />} />
-        <Route path="/abhyasi/checkin" element={me.role === 'abhyasi' ? <AbhyasiCheckin /> : <Navigate to="/" replace />} />
+        <Route path="/abhyasi" element={me.role !== 'admin' ? <AbhyasiHome /> : <Navigate to="/" replace />} />
+        <Route path="/abhyasi/checkin" element={me.role !== 'admin' ? <AbhyasiCheckin /> : <Navigate to="/" replace />} />
         <Route path="/community" element={<Community />} />
         <Route path="/admin" element={me.role === 'admin' ? <AdminOverview /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -117,8 +119,14 @@ function LocalApp() {
     </label>
   );
 
+  // Keep the switcher visible on errors (e.g. acting as a deactivated user), so you can switch away.
   if (me.isError)
-    return <p className="p-6 text-red-600">Could not load user — is the API running?</p>;
+    return (
+      <div className="space-y-4 p-6">
+        <div className="flex justify-end">{switcher}</div>
+        <p className="text-red-600">{me.error instanceof Error ? me.error.message : 'Could not load user — is the API running?'}</p>
+      </div>
+    );
   if (!me.data) return null;
   return <Shell me={me.data} headerRight={switcher} />;
 }

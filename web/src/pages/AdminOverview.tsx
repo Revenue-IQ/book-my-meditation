@@ -1,19 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserPlus } from 'lucide-react';
+import { Pencil, RotateCcw, Trash2, UserPlus, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { CLERK_ENABLED, api, type InviteResult } from '../api';
+import ConfirmDialog from '../components/ConfirmDialog';
+import EditUserModal, { type EditableUser } from '../components/EditUserModal';
 
-type Overview = { id: string; name: string; email: string; abhyasis: { id: string; name: string; email: string }[] }[];
+type AdminUser = EditableUser & { name: string; deactivatedAt: string | null };
+type Overview = {
+  preceptors: (AdminUser & { abhyasis: AdminUser[] })[];
+  unlinkedAbhyasis: AdminUser[];
+};
 
 export default function AdminOverview() {
   const qc = useQueryClient();
   const overview = useQuery({ queryKey: ['adminOverview'], queryFn: () => api<Overview>('/api/admin/overview') });
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote] = useState('');
+  const [edit, setEdit] = useState<AdminUser | null>(null);
+  const [confirm, setConfirm] = useState<{ user: AdminUser; kind: 'deactivate' | 'delete' ; role: 'preceptor' | 'abhyasi' } | null>(null);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['adminOverview'] });
 
   const create = useMutation({
-    mutationFn: () => api<InviteResult>('/api/admin/preceptors', { method: 'POST', body: JSON.stringify({ name, email }) }),
+    mutationFn: () => api<InviteResult>('/api/admin/preceptors', { method: 'POST', body: JSON.stringify({ firstName, lastName, email }) }),
     onSuccess: (r) => {
       setNote(
         r.invited
@@ -22,12 +33,69 @@ export default function AdminOverview() {
             ? `Preceptor account created for ${email.trim()}. No email goes out in local no-login mode.`
             : `${email.trim()} already has a preceptor account.`,
       );
-      setName('');
+      setFirstName('');
+      setLastName('');
       setEmail('');
-      qc.invalidateQueries({ queryKey: ['adminOverview'] });
+      refresh();
     },
     onError: (e) => setNote(e.message),
   });
+
+  const deactivate = useMutation({
+    mutationFn: ({ id, on }: { id: string; on: boolean }) =>
+      api(`/api/admin/users/${id}/${on ? 'deactivate' : 'reactivate'}`, { method: 'POST' }),
+    onSuccess: (_r, { on }) => {
+      setNote(on ? 'Deactivated. They can no longer sign in and their slots are hidden; all history stays.' : 'Reactivated.');
+      setConfirm(null);
+      refresh();
+    },
+    onError: (e) => {
+      setConfirm(null);
+      setNote(e.message);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => api(`/api/admin/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setNote('Deleted permanently, along with everything that belonged to them.');
+      setConfirm(null);
+      refresh();
+    },
+    onError: (e) => {
+      setConfirm(null);
+      setNote(e.message);
+    },
+  });
+
+  const userActions = (u: AdminUser, role: 'preceptor' | 'abhyasi') => (
+    <div className="flex gap-1">
+      <button title="Edit name or email" className="rounded-lg p-1.5 hover:bg-stone-100" onClick={() => setEdit(u)}>
+        <Pencil className="h-4 w-4" />
+      </button>
+      {role === 'preceptor' &&
+        (u.deactivatedAt ? (
+          <button title="Reactivate" className="rounded-lg p-1.5 text-emerald-700 hover:bg-emerald-50" onClick={() => deactivate.mutate({ id: u.id, on: false })}>
+            <RotateCcw className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            title="Deactivate (keeps history)"
+            className="rounded-lg p-1.5 text-amber-700 hover:bg-amber-50"
+            onClick={() => setConfirm({ user: u, kind: 'deactivate', role })}
+          >
+            <UserX className="h-4 w-4" />
+          </button>
+        ))}
+      <button
+        title="Delete permanently"
+        className="rounded-lg p-1.5 text-red-700 hover:bg-red-50"
+        onClick={() => setConfirm({ user: u, kind: 'delete', role })}
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -42,8 +110,12 @@ export default function AdminOverview() {
         }}
       >
         <label className="text-sm">
-          <span className="mb-1 block font-medium">Name</span>
-          <input required value={name} onChange={(e) => setName(e.target.value)} className="w-44 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+          <span className="mb-1 block font-medium">First name</span>
+          <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Last name <span className="font-normal text-stone-400">(optional)</span></span>
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
         </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium">Email</span>
@@ -68,17 +140,86 @@ export default function AdminOverview() {
         </p>
       )}
 
-      {overview.data?.map((p) => (
+      {overview.data?.preceptors.map((p) => (
         <div key={p.id} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-          <div className="font-semibold">{p.name} <span className="ml-1 text-sm font-normal text-stone-500">{p.email}</span></div>
-          <ul className="mt-2 list-inside list-disc text-sm text-stone-700">
+          <div className="flex items-start justify-between gap-3">
+            <div className="font-semibold">
+              {p.name} <span className="ml-1 text-sm font-normal text-stone-500">{p.email}</span>
+              {p.deactivatedAt && (
+                <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-600">deactivated</span>
+              )}
+            </div>
+            {userActions(p, 'preceptor')}
+          </div>
+          <ul className="mt-2 text-sm text-stone-700">
             {p.abhyasis.map((a) => (
-              <li key={a.id}>{a.name} — {a.email}</li>
+              <li key={a.id} className="flex items-center justify-between border-t border-stone-100 py-1 first:border-t-0">
+                <span>
+                  {a.name} <span className="text-stone-500">— {a.email}</span>
+                </span>
+                {userActions(a, 'abhyasi')}
+              </li>
             ))}
-            {p.abhyasis.length === 0 && <li className="text-stone-400">No abhyasis linked</li>}
+            {p.abhyasis.length === 0 && <li className="py-1 text-stone-400">No abhyasis linked</li>}
           </ul>
         </div>
       ))}
+
+      {overview.data && overview.data.unlinkedAbhyasis.length > 0 && (
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <div className="font-semibold">Abhyasis without a preceptor</div>
+          <p className="text-xs text-stone-500">Unlinked by every preceptor. They can still sign in; only you can see or delete them here.</p>
+          <ul className="mt-2 text-sm text-stone-700">
+            {overview.data.unlinkedAbhyasis.map((a) => (
+              <li key={a.id} className="flex items-center justify-between border-t border-stone-100 py-1 first:border-t-0">
+                <span>
+                  {a.name} <span className="text-stone-500">— {a.email}</span>
+                </span>
+                {userActions(a, 'abhyasi')}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {confirm && confirm.kind === 'deactivate' && (
+        <ConfirmDialog
+          title={`Deactivate ${confirm.user.name}?`}
+          body="They can no longer sign in and their slots disappear for abhyasis. All history stays, and you can reactivate them any time."
+          confirmLabel="Deactivate"
+          pending={deactivate.isPending}
+          onConfirm={() => deactivate.mutate({ id: confirm.user.id, on: true })}
+          onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {confirm && confirm.kind === 'delete' && (
+        <ConfirmDialog
+          title={`Delete ${confirm.user.name} permanently?`}
+          body={
+            confirm.role === 'preceptor'
+              ? 'This removes their account, sign-in, slots and every booking on them — abhyasis lose those sittings from their history. This cannot be undone.\n\nIf they simply left, use Deactivate instead.'
+              : 'This removes their account, sign-in, bookings and check-ins. This cannot be undone.'
+          }
+          confirmLabel="Delete permanently"
+          danger
+          pending={remove.isPending}
+          onConfirm={() => remove.mutate(confirm.user.id)}
+          onClose={() => setConfirm(null)}
+        />
+      )}
+
+      {edit && (
+        <EditUserModal
+          user={edit}
+          endpoint={`/api/admin/users/${edit.id}`}
+          onSaved={() => {
+            setEdit(null);
+            refresh();
+          }}
+          onClose={() => setEdit(null)}
+        />
+      )}
     </div>
   );
 }

@@ -29,18 +29,18 @@ await db.delete(users);
 const [admin, prakash, priya, arjun, bhavna, chetan, divya, ravi, esha, farah] = await db
   .insert(users)
   .values([
-    { name: 'Anand (Admin)', email: 'admin@example.com', role: 'admin' },
-    { name: 'Prakash', email: 'prakash@example.com', role: 'preceptor' },
-    { name: 'Priya', email: 'priya@example.com', role: 'preceptor' },
-    { name: 'Arjun', email: 'arjun@example.com', role: 'abhyasi' },
-    { name: 'Bhavna', email: 'bhavna@example.com', role: 'abhyasi' },
-    { name: 'Chetan', email: 'chetan@example.com', role: 'abhyasi' },
-    { name: 'Divya', email: 'divya@example.com', role: 'abhyasi' },
+    { firstName: 'Anand (Admin)', email: 'admin@example.com', role: 'admin' },
+    { firstName: 'Prakash', lastName: 'Verma', email: 'prakash@example.com', role: 'preceptor' },
+    { firstName: 'Priya', lastName: 'Nair', email: 'priya@example.com', role: 'preceptor' },
+    { firstName: 'Arjun', lastName: 'Mehta', email: 'arjun@example.com', role: 'abhyasi' },
+    { firstName: 'Bhavna', email: 'bhavna@example.com', role: 'abhyasi' },
+    { firstName: 'Chetan', lastName: 'Rao', email: 'chetan@example.com', role: 'abhyasi' },
+    { firstName: 'Divya', email: 'divya@example.com', role: 'abhyasi' },
     // Ravi has no linked Abhyasis — his slots must never appear for anyone (E2E fixture).
-    { name: 'Ravi', email: 'ravi@example.com', role: 'preceptor' },
+    { firstName: 'Ravi', email: 'ravi@example.com', role: 'preceptor' },
     // "My Abhyasis" fixtures (Phase 2): Esha linked 2 days ago, Farah stopped coming 5 weeks ago.
-    { name: 'Esha', email: 'esha@example.com', role: 'abhyasi' },
-    { name: 'Farah', email: 'farah@example.com', role: 'abhyasi' },
+    { firstName: 'Esha', email: 'esha@example.com', role: 'abhyasi' },
+    { firstName: 'Farah', email: 'farah@example.com', role: 'abhyasi' },
   ])
   .returning();
 
@@ -60,6 +60,8 @@ await db.insert(preceptorAbhyasiLinks).values([
   { preceptorId: priya.id, abhyasiId: divya.id, insertTime: longAgo },
   { preceptorId: prakash.id, abhyasiId: esha.id, insertTime: at(-2, 9) },
   { preceptorId: prakash.id, abhyasiId: farah.id, insertTime: longAgo },
+  // Preceptor-as-abhyasi: Priya takes her own sittings with Prakash.
+  { preceptorId: prakash.id, abhyasiId: priya.id, insertTime: at(-2, 9) },
 ]);
 
 const [s0, s1, s2, s3, s4, s5] = await db
@@ -159,7 +161,19 @@ for (const pr of profiles) {
     checkinRows.push({ abhyasiId: pr.id, day: dayAgo(n), mood, practices: [...practices] });
   }
 }
+// Older history for Chetan only (days 32–365), so the 3m/6m/1y graph ranges have data.
+// Appended AFTER every profile above so the PRNG draws for the existing rows — and so all
+// 30-day stats, streaks and community aggregates — stay identical. Day 31 is deliberately
+// skipped so no streak can ever extend past the original window.
+for (let n = 365; n >= 32; n--) {
+  if (rand() < 0.15) continue;
+  const p = [0.5, 0.8, 0.7, 0.9, 0.9];
+  const practices = PRACTICES.filter((_, i) => rand() < p[i]);
+  const noise = rand() * 2 - 1;
+  const mood = Math.min(5, Math.max(1, Math.round(1.8 + practices.length * 0.55 + noise)));
+  checkinRows.push({ abhyasiId: chetan.id, day: dayAgo(n), mood, practices: [...practices] });
+}
 await db.insert(checkins).values(checkinRows);
 
-console.log(`Seeded: 10 users, 7 links, ${checkinRows.length} check-ins, ${10 + pastSlots.length + 1} slots, ${4 + history.length + 1} bookings.`);
+console.log(`Seeded: 10 users, 8 links, ${checkinRows.length} check-ins, ${10 + pastSlots.length + 1} slots, ${4 + history.length + 1} bookings.`);
 await pool.end();

@@ -2,7 +2,7 @@
 // No HTTP, no auth imports — testable on its own.
 import { and, asc, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { bookings, preceptorAbhyasiLinks, preceptorPref, slots, users } from '../db/schema.js';
+import { bookings, preceptorAbhyasiLinks, preceptorPref, slots, userFullName, users } from '../db/schema.js';
 import { AppError } from './errors.js';
 import { bucketWeeks, classify, STATUS_RANK, WEEK_MS, type Sitting, type Status, type WeekCell } from './regularity.js';
 
@@ -47,6 +47,8 @@ export async function updatePrefs(preceptorId: string, patch: { historyWeeks?: u
 export type AbhyasiRow = {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string | null;
   email: string;
   linkedAt: string;
   status: Status;
@@ -74,11 +76,18 @@ export async function abhyasiOverview(
   const windowStart = new Date(anchors.weekStart.getTime() - (prefs.historyWeeks - 1) * WEEK_MS);
 
   const linked = await db
-    .select({ id: users.id, name: users.name, email: users.email, linkedAt: preceptorAbhyasiLinks.insertTime })
+    .select({
+      id: users.id,
+      name: userFullName,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      email: users.email,
+      linkedAt: preceptorAbhyasiLinks.insertTime,
+    })
     .from(preceptorAbhyasiLinks)
     .innerJoin(users, eq(users.id, preceptorAbhyasiLinks.abhyasiId))
     .where(eq(preceptorAbhyasiLinks.preceptorId, preceptorId))
-    .orderBy(asc(users.name));
+    .orderBy(asc(userFullName));
   const ids = linked.map((a) => a.id);
 
   // Sittings inside the window, with any preceptor. Only "with me or not" leaves this module.
@@ -110,6 +119,8 @@ export async function abhyasiOverview(
     return {
       id: a.id,
       name: a.name,
+      firstName: a.firstName,
+      lastName: a.lastName,
       email: a.email,
       linkedAt: a.linkedAt.toISOString(),
       status: classify({ lastSittingAt: l?.at ?? null, linkedAt: a.linkedAt, now, notSeenWeeks: prefs.notSeenWeeks, weeks }),
@@ -148,6 +159,20 @@ export async function abhyasiOverview(
   };
 }
 
+// ---- Unlink ----
+
+/**
+ * Remove the preceptor↔abhyasi link only. The account, its history and any existing bookings
+ * stay (the preceptor cancels those by hand if needed); re-inviting the same email re-links.
+ */
+export async function unlinkAbhyasi(preceptorId: string, abhyasiId: string) {
+  const deleted = await db
+    .delete(preceptorAbhyasiLinks)
+    .where(and(eq(preceptorAbhyasiLinks.preceptorId, preceptorId), eq(preceptorAbhyasiLinks.abhyasiId, abhyasiId)))
+    .returning();
+  if (deleted.length === 0) throw new AppError('Not one of your abhyasis', 404);
+}
+
 // ---- History of one person ----
 
 export type HistoryEntry =
@@ -164,7 +189,7 @@ export type HistoryEntry =
 
 export async function abhyasiHistory(preceptorId: string, abhyasiId: string, weekStart: Date): Promise<{ abhyasi: { id: string; name: string; email: string }; entries: HistoryEntry[] }> {
   const [link] = await db
-    .select({ id: users.id, name: users.name, email: users.email })
+    .select({ id: users.id, name: userFullName, email: users.email })
     .from(preceptorAbhyasiLinks)
     .innerJoin(users, eq(users.id, preceptorAbhyasiLinks.abhyasiId))
     .where(and(eq(preceptorAbhyasiLinks.preceptorId, preceptorId), eq(preceptorAbhyasiLinks.abhyasiId, abhyasiId)));

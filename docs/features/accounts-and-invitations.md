@@ -14,8 +14,10 @@ invited account is refused with "ask your preceptor for an invitation".
   resends the invitation.
 - **Preceptor → abhyasi**: an "Invite abhyasi" form on My Abhyasis. A new email gets an account
   row, a link to this preceptor, and an invitation email. An email already on the app as an
-  abhyasi is **linked only** — no new account, and no email if they have already signed in
-  (resend if they haven't). Already-linked duplicates are reported, never duplicated.
+  abhyasi **or a preceptor** is **linked only** — no new account, the role is untouched, and no
+  email if they have already signed in (resend if they haven't). Preceptors are abhyasis too
+  (see [roles-and-access.md](roles-and-access.md)); only an admin email or your own email is
+  refused. Already-linked duplicates are reported, never duplicated.
 - **First admin**: the `ADMIN_EMAIL` env var — when that email signs in and no matching user
   exists, an admin account is created for it (bootstrap; see `bindClerkAccount` in
   [api/src/auth.ts](../../api/src/auth.ts)).

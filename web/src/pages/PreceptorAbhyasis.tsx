@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Check, Copy, Mail, Settings2, UserPlus, X } from 'lucide-react';
+import { Check, Copy, Mail, Pencil, Settings2, UserMinus, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
+import ConfirmDialog from '../components/ConfirmDialog';
+import EditUserModal from '../components/EditUserModal';
 import {
   CLERK_ENABLED,
   api,
@@ -70,6 +72,7 @@ export default function PreceptorAbhyasis() {
   const [showInvite, setShowInvite] = useState(false);
   const [note, setNote] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -78,6 +81,21 @@ export default function PreceptorAbhyasis() {
   const overview = useQuery({
     queryKey: ['abhyasiOverview', anchors.weekStart],
     queryFn: () => api<AbhyasiOverview>(`/api/preceptor/abhyasis/overview?${q}`),
+  });
+
+  const [unlinkId, setUnlinkId] = useState<string | null>(null);
+  const unlink = useMutation({
+    mutationFn: (id: string) => api(`/api/preceptor/abhyasis/${id}/link`, { method: 'DELETE' }),
+    onSuccess: (_r, id) => {
+      const who = overview.data?.abhyasis.find((a) => a.id === id);
+      setNote(`${who?.name ?? 'They'} removed from your abhyasis. Their account and history stay; inviting the same email links them again.`);
+      setUnlinkId(null);
+      qc.invalidateQueries({ queryKey: ['abhyasiOverview'] });
+    },
+    onError: (e) => {
+      setUnlinkId(null);
+      setError(e.message);
+    },
   });
 
   const copyEmail = async (email: string) => {
@@ -215,6 +233,16 @@ export default function PreceptorAbhyasis() {
                       <a title="Send email" className="rounded-lg p-1.5 hover:bg-stone-100" href={`mailto:${a.email}`}>
                         <Mail className="h-4 w-4" />
                       </a>
+                      <button title="Edit name or email" className="rounded-lg p-1.5 hover:bg-stone-100" onClick={() => setEditId(a.id)}>
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        title="Remove from my abhyasis"
+                        className="rounded-lg p-1.5 text-red-700 hover:bg-red-50"
+                        onClick={() => setUnlinkId(a.id)}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -237,15 +265,42 @@ export default function PreceptorAbhyasis() {
           onClose={() => setDetailId(null)}
         />
       )}
+
+      {unlinkId && data && (
+        <ConfirmDialog
+          title={`Remove ${data.abhyasis.find((a) => a.id === unlinkId)?.name} from your abhyasis?`}
+          body={
+            'Their account and history stay, and any existing bookings with you remain until cancelled. Inviting the same email links them again.'
+          }
+          confirmLabel="Remove"
+          danger
+          pending={unlink.isPending}
+          onConfirm={() => unlink.mutate(unlinkId)}
+          onClose={() => setUnlinkId(null)}
+        />
+      )}
+
+      {editId && data && (
+        <EditUserModal
+          user={data.abhyasis.find((a) => a.id === editId)!}
+          endpoint={`/api/preceptor/abhyasis/${editId}`}
+          onSaved={() => {
+            setEditId(null);
+            qc.invalidateQueries({ queryKey: ['abhyasiOverview'] });
+          }}
+          onClose={() => setEditId(null)}
+        />
+      )}
     </div>
   );
 }
 
 function InvitePanel({ onDone, onError }: { onDone: (message: string) => void; onError: (e: Error) => void }) {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const invite = useMutation({
-    mutationFn: () => api<AbhyasiInviteResult>('/api/preceptor/invites', { method: 'POST', body: JSON.stringify({ name, email }) }),
+    mutationFn: () => api<AbhyasiInviteResult>('/api/preceptor/invites', { method: 'POST', body: JSON.stringify({ firstName, lastName, email }) }),
     onSuccess: (r) => {
       const who = email.trim();
       if (r.created) {
@@ -267,8 +322,12 @@ function InvitePanel({ onDone, onError }: { onDone: (message: string) => void; o
       }}
     >
       <label className="text-sm">
-        <span className="mb-1 block font-medium">Name</span>
-        <input required value={name} onChange={(e) => setName(e.target.value)} className="w-44 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+        <span className="mb-1 block font-medium">First name</span>
+        <input required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
+      </label>
+      <label className="text-sm">
+        <span className="mb-1 block font-medium">Last name <span className="font-normal text-stone-400">(optional)</span></span>
+        <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-36 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
       </label>
       <label className="text-sm">
         <span className="mb-1 block font-medium">Email</span>

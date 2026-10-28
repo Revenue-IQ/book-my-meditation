@@ -1,19 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Check } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PracticeTable from '../components/PracticeTable';
-import { addLocalDays, api, localDay, MOODS, PRACTICE_LABELS, PRACTICES, type CheckinPage, type Practice, type TodayCheckin } from '../api';
+import Stars from '../components/Stars';
 
-const PERSONAL_MIN_DAYS = 3;
+// Recharts is ~400 kB minified; load it only when this page actually shows the graph.
+const MoodPracticeChart = lazy(() => import('../components/MoodPracticeChart'));
+import { addLocalDays, api, localDay, MOODS, PRACTICE_LABELS, PRACTICES, tzMinutes, type CheckinPage, type Practice, type RangeDays, type TodayCheckin } from '../api';
 
 export default function AbhyasiCheckin() {
   const qc = useQueryClient();
   const [error, setError] = useState('');
+  const [days, setDays] = useState<RangeDays>(30);
   const today = localDay();
-  const key = ['checkin', today];
-  const page = useQuery({ queryKey: key, queryFn: () => api<CheckinPage>(`/api/abhyasi/checkin?today=${today}`) });
+  const key = ['checkin', today, days];
+  // keepPreviousData: switching the range keeps the old stats on screen (and the chart
+  // mounted, so its practice selection survives) until the new window arrives.
+  const page = useQuery({
+    queryKey: key,
+    queryFn: () => api<CheckinPage>(`/api/abhyasi/checkin?today=${today}&days=${days}&tz=${tzMinutes()}`),
+    placeholderData: keepPreviousData,
+  });
 
   // Every tap updates the cached "today" immediately (optimistic), so the page never waits
   // on the network. Any in-flight refetch is cancelled first so a stale response cannot
@@ -24,7 +32,7 @@ export default function AbhyasiCheckin() {
   };
   const settled = async (t: NonNullable<TodayCheckin>) => {
     await apply(t);
-    qc.invalidateQueries({ queryKey: key });
+    qc.invalidateQueries({ queryKey: ['checkin'] });
   };
   const setMood = useMutation({
     mutationFn: (mood: number) => api<NonNullable<TodayCheckin>>('/api/abhyasi/checkin', { method: 'PUT', body: JSON.stringify({ day: today, mood }) }),
@@ -45,8 +53,6 @@ export default function AbhyasiCheckin() {
   };
 
   const stats = page.data?.stats;
-  const stripDays = Array.from({ length: 30 }, (_, i) => addLocalDays(today, i - 29));
-  const moodByDay = new Map(stats?.strip.map((s) => [s.day, s.mood]));
 
   return (
     <div className="space-y-8">
@@ -62,7 +68,6 @@ export default function AbhyasiCheckin() {
         <div className="mt-5 flex flex-wrap justify-center gap-3 sm:gap-6">
           {MOODS.map((m) => {
             const selected = t?.mood === m.value;
-            const dimmed = !!t && !selected;
             return (
               <button
                 key={m.value}
@@ -78,13 +83,7 @@ export default function AbhyasiCheckin() {
                   selected ? 'bg-violet-50 ring-2 ring-violet-400' : 'hover:bg-stone-50',
                 )}
               >
-                <img
-                  src={m.file}
-                  alt=""
-                  width={96}
-                  height={96}
-                  className={clsx('h-16 w-16 transition sm:h-20 sm:w-20', dimmed && 'opacity-40 grayscale', selected && 'scale-110')}
-                />
+                <img src={m.file} alt="" width={96} height={96} className={clsx('h-16 w-16 transition sm:h-20 sm:w-20', selected && 'scale-110')} />
                 <span className={clsx('text-xs font-medium', selected ? 'text-violet-900' : 'text-stone-500')}>{m.label}</span>
               </button>
             );
@@ -123,33 +122,28 @@ export default function AbhyasiCheckin() {
 
       {stats && (
         <section className="space-y-4">
-          <h2 className="text-base font-semibold">Your last 30 days</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <Tile label="Check-in streak" value={`${stats.streak} day${stats.streak === 1 ? '' : 's'}`} />
-            <Tile label="Days checked in" value={`${stats.checkins} / 30`} />
-            <Tile label="Average mood" value={stats.avgMood === null ? '–' : `${stats.avgMood} / 5`} />
-          </div>
+          <h2 className="text-base font-semibold">Your last {days === 7 ? '7 days' : days === 30 ? '30 days' : days === 90 ? '3 months' : days === 180 ? '6 months' : 'year'}</h2>
 
-          <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 text-xs font-semibold text-stone-500">Mood, day by day</div>
-            <div className="grid grid-cols-10 gap-1.5 sm:grid-cols-15" style={{ gridTemplateColumns: 'repeat(15, minmax(0, 1fr))' }}>
-              {stripDays.map((d) => {
-                const mood = moodByDay.get(d);
-                const m = MOODS.find((x) => x.value === mood);
-                return (
-                  <div
-                    key={d}
-                    title={`${d}${m ? `: ${m.label}` : ': no check-in'}`}
-                    className={clsx('flex aspect-square items-center justify-center rounded-md text-base', m ? 'bg-violet-50' : 'bg-stone-100')}
-                  >
-                    {m?.glyph ?? ''}
-                  </div>
-                );
-              })}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <StreakCard streak={stats.streak} days={stats.series.map((s) => s.day)} today={today} checkedToday={!!t} />
+            <div className="grid grid-cols-2 gap-3">
+              <Tile label="Days checked in" value={`${stats.checkins} / ${stats.days}`} />
+              <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+                <Stars value={stats.avgMood} className="mt-1" />
+                <div className="mt-1 text-xs text-stone-500">Average mood{stats.avgMood !== null && <span className="ml-1 tabular-nums">({stats.avgMood} / 5)</span>}</div>
+              </div>
             </div>
           </div>
 
-          <PracticeTable stats={stats.practices} minDays={PERSONAL_MIN_DAYS} who="you" />
+          <Suspense fallback={<div className="h-80 rounded-xl border border-stone-200 bg-white shadow-sm" />}>
+            <MoodPracticeChart
+              source={{ kind: 'you', series: stats.series, sittingDays: stats.sittings.days, today }}
+              days={days}
+              setDays={setDays}
+              practices={stats.practices}
+              sittings={stats.sittings}
+            />
+          </Suspense>
 
           <p className="text-sm text-stone-500">
             Only you can see your check-ins.{' '}
@@ -159,6 +153,50 @@ export default function AbhyasiCheckin() {
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+/** Animated flame, the streak count, and the last five days as lit/missed markers.
+ *  Today without a check-in shows as pending (dashed, pulsing), never as missed. */
+function StreakCard({ streak, days, today, checkedToday }: { streak: number; days: string[]; today: string; checkedToday: boolean }) {
+  const checked = new Set(days);
+  const last5 = Array.from({ length: 5 }, (_, i) => addLocalDays(today, i - 4));
+  const initial = (day: string) => {
+    const [y, m, d] = day.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'narrow' });
+  };
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <img src="/emoji/1f525.webp" alt="" width={48} height={48} className={clsx('h-11 w-11', streak === 0 && 'opacity-40 grayscale')} />
+        <div>
+          <div className="text-2xl font-semibold tabular-nums">{streak}</div>
+          <div className="text-xs text-stone-500">day streak</div>
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        {last5.map((d) => {
+          const done = checked.has(d) || (d === today && checkedToday);
+          const pending = d === today && !done;
+          return (
+            <div key={d} className="flex flex-col items-center gap-0.5">
+              <div
+                title={`${d}${done ? ': checked in' : pending ? ': not yet today' : ': missed'}`}
+                className={clsx(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-sm',
+                  done && 'bg-amber-100',
+                  pending && 'animate-pulse border-2 border-dashed border-stone-300',
+                  !done && !pending && 'bg-stone-100',
+                )}
+              >
+                {done ? '🔥' : ''}
+              </div>
+              <span className="text-[10px] text-stone-400">{initial(d)}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
