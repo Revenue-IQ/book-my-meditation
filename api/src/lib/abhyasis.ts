@@ -11,17 +11,41 @@ const slotEnded = sql`${slots.startAt} + (${slots.durationMinutes} * interval '1
 
 // ---- Preferences ----
 
-export type Prefs = { reminderLeadHours: number; historyWeeks: number; notSeenWeeks: number };
+export const SEND_KEYS = ['sendAnnouncement', 'sendConfirmation', 'sendCancellation', 'sendReminder'] as const;
+
+export type Prefs = {
+  reminderLeadHours: number;
+  historyWeeks: number;
+  notSeenWeeks: number;
+  /** IANA zone; emails word times in it. Set by the admin (creation / edit), read-only here. */
+  homeTimezone: string;
+} & Record<(typeof SEND_KEYS)[number], boolean>;
+
+function toPrefs(row: typeof preceptorPref.$inferSelect): Prefs {
+  return {
+    reminderLeadHours: row.reminderLeadHours,
+    historyWeeks: row.historyWeeks,
+    notSeenWeeks: row.notSeenWeeks,
+    homeTimezone: row.homeTimezone,
+    sendAnnouncement: row.sendAnnouncement,
+    sendConfirmation: row.sendConfirmation,
+    sendCancellation: row.sendCancellation,
+    sendReminder: row.sendReminder,
+  };
+}
 
 export async function getPrefs(preceptorId: string): Promise<Prefs> {
   const [row] = await db.select().from(preceptorPref).where(eq(preceptorPref.preceptorId, preceptorId));
-  if (row) return { reminderLeadHours: row.reminderLeadHours, historyWeeks: row.historyWeeks, notSeenWeeks: row.notSeenWeeks };
+  if (row) return toPrefs(row);
   const [created] = await db.insert(preceptorPref).values({ preceptorId, insertedBy: preceptorId }).returning();
-  return { reminderLeadHours: created.reminderLeadHours, historyWeeks: created.historyWeeks, notSeenWeeks: created.notSeenWeeks };
+  return toPrefs(created);
 }
 
-export async function updatePrefs(preceptorId: string, patch: { historyWeeks?: unknown; notSeenWeeks?: unknown }): Promise<Prefs> {
-  const set: Partial<{ historyWeeks: number; notSeenWeeks: number }> = {};
+export async function updatePrefs(
+  preceptorId: string,
+  patch: { historyWeeks?: unknown; notSeenWeeks?: unknown; reminderLeadHours?: unknown } & Partial<Record<(typeof SEND_KEYS)[number], unknown>>,
+): Promise<Prefs> {
+  const set: Partial<typeof preceptorPref.$inferInsert> = {};
   if (patch.historyWeeks !== undefined) {
     const n = Number(patch.historyWeeks);
     if (!Number.isInteger(n) || n < 4 || n > 26) throw new AppError('Weeks shown must be 4–26');
@@ -31,6 +55,16 @@ export async function updatePrefs(preceptorId: string, patch: { historyWeeks?: u
     const n = Number(patch.notSeenWeeks);
     if (!Number.isInteger(n) || n < 1 || n > 12) throw new AppError('Not-seen threshold must be 1–12 weeks');
     set.notSeenWeeks = n;
+  }
+  if (patch.reminderLeadHours !== undefined) {
+    const n = Number(patch.reminderLeadHours);
+    if (!Number.isInteger(n) || n < 1 || n > 48) throw new AppError('Reminder lead time must be 1–48 hours');
+    set.reminderLeadHours = n;
+  }
+  for (const key of SEND_KEYS) {
+    if (patch[key] === undefined) continue;
+    if (typeof patch[key] !== 'boolean') throw new AppError(`${key} must be true or false`);
+    set[key] = patch[key];
   }
   await getPrefs(preceptorId); // make sure the row exists
   if (Object.keys(set).length) {

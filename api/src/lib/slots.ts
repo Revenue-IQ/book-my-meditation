@@ -11,6 +11,7 @@ import {
   users,
 } from '../db/schema.js';
 import { AppError } from './errors.js';
+import { addDaysInZone } from './tz.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -181,6 +182,7 @@ export async function assertSlotDeletable(slot: { id: string; startAt: Date; dur
   if (n > 0) throw new AppError('This sitting already happened and has bookings, so it is kept as history and cannot be deleted', 409);
 }
 
+/** Delete a slot. Returns the abhyasis whose active bookings died with it (for cancellation emails). */
 export async function deleteSlot(slotId: string, preceptorId: string) {
   const [slot] = await db
     .select()
@@ -188,7 +190,29 @@ export async function deleteSlot(slotId: string, preceptorId: string) {
     .where(and(eq(slots.id, slotId), eq(slots.preceptorId, preceptorId)));
   if (!slot) throw new AppError('Slot not found', 404);
   await assertSlotDeletable(slot);
+  const affected = await db
+    .select({ abhyasiId: bookings.abhyasiId })
+    .from(bookings)
+    .where(and(eq(bookings.slotId, slotId), ne(bookings.status, 'cancelled')));
   await db.delete(slots).where(eq(slots.id, slotId)); // bookings & visibility cascade
+  return { slot, cancelledAbhyasiIds: affected.map((a) => a.abhyasiId) };
+}
+
+/** Future slots in [weekStart, weekEnd) that no announcement email has covered yet. */
+export async function listUnannounced(preceptorId: string, weekStart: Date, weekEnd: Date) {
+  return db
+    .select()
+    .from(slots)
+    .where(
+      and(
+        eq(slots.preceptorId, preceptorId),
+        gte(slots.startAt, weekStart),
+        lt(slots.startAt, weekEnd),
+        gt(slots.startAt, new Date()),
+        sql`${slots.announcedAt} is null`,
+      ),
+    )
+    .orderBy(asc(slots.startAt));
 }
 
 /** Copy last week's slots (relative to weekStart) into this week. Skips slots that would overlap existing ones. Bookings are not copied. */
@@ -200,16 +224,17 @@ export async function copyLastWeek(preceptorId: string, weekStart: Date) {
     .where(and(eq(slots.preceptorId, preceptorId), gte(slots.startAt, prevStart), lt(slots.startAt, weekStart)));
   if (prevSlots.length === 0) return { copied: 0 };
 
+  // +7 days by calendar in the preceptor's HOME timezone, not by milliseconds: keeps
+  // 7:00 AM at 7:00 AM across daylight-saving changes, and works on cloud where the
+  // server runs in UTC (Phase 5; previously used the server's own timezone).
+  const [pref] = await db.select().from(preceptorPref).where(eq(preceptorPref.preceptorId, preceptorId));
+  const tz = pref?.homeTimezone ?? 'Asia/Kolkata';
+
   let copied = 0;
   await db.transaction(async (tx) => {
     await lockPreceptor(tx, preceptorId);
     for (const src of prevSlots) {
-      // +7 days by calendar, not by milliseconds: keeps 7:00 AM at 7:00 AM across
-      // daylight-saving changes. Uses the server's timezone, which in local dev is
-      // the preceptor's own; the cloud deployment revisits this with a stored
-      // preceptor timezone (planned for Phase 5).
-      const s = src.startAt;
-      const newStart = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 7, s.getHours(), s.getMinutes());
+      const newStart = addDaysInZone(src.startAt, 7, tz);
       if (newStart.getTime() <= Date.now()) continue;
       // Same no-overlap rule as createSlot; the query sees this transaction's own
       // earlier inserts, so copied slots cannot overlap each other either.

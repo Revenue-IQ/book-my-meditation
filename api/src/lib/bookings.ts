@@ -65,9 +65,10 @@ export async function listVisibleSlots(abhyasiId: string) {
 
 /**
  * Book a slot. The slot row is locked (FOR UPDATE) so two simultaneous bookings
- * serialize: capacity can never be exceeded.
+ * serialize: capacity can never be exceeded. `bookedBy` is the acting user — the
+ * abhyasi themself, or the preceptor when pre-booking.
  */
-export async function bookSlot(slotId: string, abhyasiId: string) {
+export async function bookSlot(slotId: string, abhyasiId: string, bookedBy = abhyasiId) {
   return db.transaction(async (tx) => {
     const [slot] = await tx.select().from(slots).where(eq(slots.id, slotId)).for('update');
     if (!slot) throw new AppError('Slot not found', 404);
@@ -101,10 +102,32 @@ export async function bookSlot(slotId: string, abhyasiId: string) {
 
     const [booking] = await tx
       .insert(bookings)
-      .values({ slotId, abhyasiId, insertedBy: abhyasiId })
+      .values({ slotId, abhyasiId, insertedBy: bookedBy })
       .returning();
     return booking;
   });
+}
+
+/**
+ * Preceptor pre-books their own slot for chosen regulars (Phase 5). Each person goes
+ * through the full bookSlot guards (capacity lock, link, visibility, duplicates), so a
+ * failure for one never blocks the others — per-person errors are reported back instead.
+ */
+export async function prebookSlot(slotId: string, preceptorId: string, abhyasiIds: unknown) {
+  if (!Array.isArray(abhyasiIds) || abhyasiIds.length === 0 || !abhyasiIds.every((id) => typeof id === 'string'))
+    throw new AppError('Pick at least one abhyasi to pre-book');
+  const [slot] = await db.select().from(slots).where(and(eq(slots.id, slotId), eq(slots.preceptorId, preceptorId)));
+  if (!slot) throw new AppError('Slot not found', 404);
+  const results: { abhyasiId: string; bookingId?: string; error?: string }[] = [];
+  for (const abhyasiId of abhyasiIds as string[]) {
+    try {
+      const booking = await bookSlot(slotId, abhyasiId, preceptorId);
+      results.push({ abhyasiId, bookingId: booking.id });
+    } catch (err) {
+      results.push({ abhyasiId, error: (err as Error).message });
+    }
+  }
+  return results;
 }
 
 export async function listMyBookings(abhyasiId: string) {
@@ -156,7 +179,11 @@ export async function confirmByAbhyasi(bookingId: string, abhyasiId: string) {
     .where(eq(bookings.id, bookingId));
 }
 
-/** Preceptor cancels a booking; optionally deletes the whole slot (which cancels everything on it). */
+/**
+ * Preceptor cancels a booking; optionally deletes the whole slot (which cancels everything
+ * on it). Returns the affected abhyasis so cancellation emails can go out — gathered before
+ * the delete, because the cascade takes the booking rows with it.
+ */
 export async function cancelByPreceptor(bookingId: string, preceptorId: string, deleteSlotToo: boolean) {
   const booking = await getActiveBooking(bookingId);
   const [slot] = await db.select().from(slots).where(eq(slots.id, booking.slotId));
@@ -164,12 +191,16 @@ export async function cancelByPreceptor(bookingId: string, preceptorId: string, 
 
   if (deleteSlotToo) {
     await assertSlotDeletable(slot);
+    const affected = await db
+      .select({ abhyasiId: bookings.abhyasiId })
+      .from(bookings)
+      .where(and(eq(bookings.slotId, slot.id), ne(bookings.status, 'cancelled')));
     await db.delete(slots).where(eq(slots.id, slot.id)); // cascades to bookings & visibility
-    return { slotDeleted: true };
+    return { slotDeleted: true as const, slot, cancelledAbhyasiIds: affected.map((a) => a.abhyasiId) };
   }
   await db
     .update(bookings)
     .set({ status: 'cancelled', cancelledBy: 'preceptor', updatedBy: preceptorId, updateTime: new Date() })
     .where(eq(bookings.id, bookingId));
-  return { slotDeleted: false };
+  return { slotDeleted: false as const, slot, cancelledAbhyasiIds: [booking.abhyasiId] };
 }

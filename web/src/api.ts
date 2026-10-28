@@ -65,9 +65,14 @@ export type PreceptorSlot = {
   confirmWindowOpen: boolean;
   /** Start + duration is in the past. Such a slot cannot be deleted if it has bookings. */
   ended: boolean;
+  /** When the announcement email went out; null = waiting for "Publish week". */
+  announcedAt: string | null;
   bookings: SlotBooking[];
   visibleTo: { id: string; name: string }[];
 };
+
+/** Per-person outcome of a pre-book request. */
+export type PrebookResult = { abhyasiId: string; bookingId?: string; error?: string };
 
 export type VisibleSlot = {
   id: string;
@@ -101,7 +106,111 @@ export type AbhyasiInviteResult = InviteResult & { linked: boolean };
 
 export type RegularityStatus = 'not_seen' | 'slipping' | 'active' | 'new';
 export type WeekCell = { start: string; mine: number; elsewhere: number };
-export type Prefs = { reminderLeadHours: number; historyWeeks: number; notSeenWeeks: number };
+export type Prefs = {
+  reminderLeadHours: number;
+  historyWeeks: number;
+  notSeenWeeks: number;
+  /** The preceptor's home timezone (IANA). Emails word times in it; set by the admin. */
+  homeTimezone: string;
+  sendAnnouncement: boolean;
+  sendConfirmation: boolean;
+  sendCancellation: boolean;
+  sendReminder: boolean;
+};
+
+// ---- Emails (Phase 5) ----
+
+/** Which email types this user receives (any role; everything defaults to ON). */
+export type EmailPrefs = {
+  receiveAnnouncement: boolean;
+  receiveConfirmation: boolean;
+  receiveCancellation: boolean;
+  receiveReminder: boolean;
+};
+
+/** The browser's IANA timezone — the pre-filled suggestion wherever a timezone is picked. */
+export function detectTimeZone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+    return tz === 'Asia/Calcutta' ? 'Asia/Kolkata' : tz; // Chrome reports the legacy alias
+  } catch {
+    return 'Asia/Kolkata';
+  }
+}
+
+/**
+ * A short, curated timezone list instead of the full ~420-entry IANA set — one familiar
+ * city per region the community plausibly lives in. The picker always adds the detected
+ * and currently-stored zones on top, so nothing valid is ever unreachable; a genuinely
+ * missing zone is a one-line addition here.
+ */
+const COMMON_TIMEZONES = [
+  'Asia/Kolkata',
+  'Asia/Karachi',
+  'Asia/Colombo',
+  'Asia/Kathmandu',
+  'Asia/Dhaka',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+  'Asia/Singapore',
+  'Asia/Hong_Kong',
+  'Asia/Tokyo',
+  'Australia/Perth',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Amsterdam',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Zurich',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Nairobi',
+  'Africa/Lagos',
+  'Africa/Johannesburg',
+  'America/New_York',
+  'America/Toronto',
+  'America/Chicago',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Los_Angeles',
+  'America/Vancouver',
+  'America/Mexico_City',
+  'America/Sao_Paulo',
+  'UTC',
+];
+
+/** Current GMT offset of a zone in minutes (parsed live, so DST zones sort correctly today). */
+function tzOffsetMin(tz: string): number {
+  try {
+    const name =
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' })
+        .formatToParts(new Date())
+        .find((p) => p.type === 'timeZoneName')?.value ?? 'GMT';
+    const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name);
+    if (!m) return 0; // plain "GMT"
+    return (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+  } catch {
+    return 0;
+  }
+}
+
+/** "Asia/Kolkata (GMT+5:30)" — offset computed live, so DST zones always label correctly. */
+export function tzLabel(tz: string): string {
+  const min = tzOffsetMin(tz);
+  if (min === 0) return `${tz} (GMT)`;
+  const sign = min < 0 ? '-' : '+';
+  const abs = Math.abs(min);
+  return `${tz} (GMT${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, '0')}` : ''})`;
+}
+
+/** The curated list plus any `extra` zones (detected / currently stored), sorted west → east. */
+export function timeZoneChoices(...extra: (string | null | undefined)[]): string[] {
+  const set = new Set([...extra.filter((t): t is string => !!t), ...COMMON_TIMEZONES]);
+  return [...set].sort((a, b) => tzOffsetMin(a) - tzOffsetMin(b) || a.localeCompare(b));
+}
 
 export type AbhyasiRow = {
   id: string;

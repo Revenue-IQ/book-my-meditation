@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   date,
   integer,
   pgSchema,
@@ -44,7 +45,6 @@ export const users = app.table('users', {
 export const userFullName = sql<string>`trim(${users.firstName} || ' ' || coalesce(${users.lastName}, ''))`;
 
 // reminder_lead_hours lives here, not on users: it is preceptor configuration.
-// Phase 5 adds email send/receive toggles to this table, and a new abhyasi_pref table.
 export const preceptorPref = app.table('preceptor_pref', {
   id: uuid('id').primaryKey().defaultRandom(),
   preceptorId: uuid('preceptor_id').notNull().references(() => users.id).unique(),
@@ -53,6 +53,30 @@ export const preceptorPref = app.table('preceptor_pref', {
   // many weeks without a sitting a person is flagged "not seen".
   historyWeeks: integer('history_weeks').notNull().default(8),
   notSeenWeeks: integer('not_seen_weeks').notNull().default(3),
+  // Phase 5: the preceptor's HOME timezone (IANA name), set by the admin at creation.
+  // Emails word sitting times in this zone; the app itself stays browser-local. Also
+  // anchors copy-last-week's calendar math on cloud, where the server runs in UTC.
+  // Changing it never moves existing slots — they are stored as UTC instants.
+  homeTimezone: text('home_timezone').notNull().default('Asia/Kolkata'),
+  // Phase 5: which email types go out for this preceptor's sittings (the send gate).
+  sendAnnouncement: boolean('send_announcement').notNull().default(true),
+  sendConfirmation: boolean('send_confirmation').notNull().default(true),
+  sendCancellation: boolean('send_cancellation').notNull().default(true),
+  sendReminder: boolean('send_reminder').notNull().default(true),
+  ...audit,
+});
+
+// Phase 5: which email types a person receives. One table for every role — preceptors
+// receive emails too (booking notifications, and everything as abhyasis of their own
+// preceptors), so this is recipient configuration, not an abhyasi-only table. A missing
+// row means "all ON" (the spec's default) — rows are created on first edit.
+export const emailPref = app.table('email_pref', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  receiveAnnouncement: boolean('receive_announcement').notNull().default(true),
+  receiveConfirmation: boolean('receive_confirmation').notNull().default(true),
+  receiveCancellation: boolean('receive_cancellation').notNull().default(true),
+  receiveReminder: boolean('receive_reminder').notNull().default(true),
   ...audit,
 });
 
@@ -73,6 +97,10 @@ export const slots = app.table('slots', {
   durationMinutes: integer('duration_minutes').notNull().default(45),
   capacity: integer('capacity').notNull().default(1),
   visibility: visibilityEnum('visibility').notNull().default('all'),
+  // Phase 5: when the new-slots announcement email went out (null = not announced yet).
+  // "Publish week" announces all unannounced slots; a slot created in an already-published
+  // week announces itself immediately.
+  announcedAt: timestamp('announced_at', { withTimezone: true }),
   ...audit,
 });
 
@@ -99,6 +127,12 @@ export const bookings = app.table(
     abhyasiId: uuid('abhyasi_id').notNull().references(() => users.id),
     status: bookingStatusEnum('status').notNull().default('booked'),
     cancelledBy: cancelledByEnum('cancelled_by'),
+    // Phase 5: when the reminder email went out (null = not yet; set even when the send
+    // gate suppressed it, so the sweep never reconsiders a booking).
+    reminderSentAt: timestamp('reminder_sent_at', { withTimezone: true }),
+    // Phase 5: secret for the reminder's one-click "I'm coming" / "Cancel" links (no login).
+    // A UUID is 122 random bits — unguessable, and it only ever travels in this one email.
+    actionToken: uuid('action_token').notNull().default(sql`gen_random_uuid()`).unique(),
     ...audit,
   },
   (t) => [

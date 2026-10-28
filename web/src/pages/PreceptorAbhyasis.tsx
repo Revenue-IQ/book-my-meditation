@@ -4,6 +4,7 @@ import { Check, Copy, Mail, Pencil, Settings2, UserMinus, UserPlus, X } from 'lu
 import { useState } from 'react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EditUserModal from '../components/EditUserModal';
+import EmailPrefsPanel from '../components/EmailPrefsPanel';
 import {
   CLERK_ENABLED,
   api,
@@ -345,33 +346,83 @@ function InvitePanel({ onDone, onError }: { onDone: (message: string) => void; o
   );
 }
 
+const SEND_LABELS: { key: 'sendAnnouncement' | 'sendConfirmation' | 'sendCancellation' | 'sendReminder'; label: string }[] = [
+  { key: 'sendAnnouncement', label: 'New-slots announcement' },
+  { key: 'sendConfirmation', label: 'Booking confirmed' },
+  { key: 'sendCancellation', label: 'Booking cancelled' },
+  { key: 'sendReminder', label: 'Reminder' },
+];
+
 function SettingsPanel({ prefs, onSaved, onError }: { prefs: Prefs; onSaved: () => void; onError: (e: Error) => void }) {
   const [historyWeeks, setHistoryWeeks] = useState(prefs.historyWeeks);
   const [notSeenWeeks, setNotSeenWeeks] = useState(prefs.notSeenWeeks);
+  const [reminderLeadHours, setReminderLeadHours] = useState(prefs.reminderLeadHours);
+  const [send, setSend] = useState({
+    sendAnnouncement: prefs.sendAnnouncement,
+    sendConfirmation: prefs.sendConfirmation,
+    sendCancellation: prefs.sendCancellation,
+    sendReminder: prefs.sendReminder,
+  });
   const save = useMutation({
-    mutationFn: () => api<Prefs>('/api/preceptor/prefs', { method: 'PATCH', body: JSON.stringify({ historyWeeks, notSeenWeeks }) }),
+    mutationFn: () =>
+      api<Prefs>('/api/preceptor/prefs', {
+        method: 'PATCH',
+        body: JSON.stringify({ historyWeeks, notSeenWeeks, reminderLeadHours, ...send }),
+      }),
     onSuccess: onSaved,
     onError,
   });
   return (
     <form
-      className="flex flex-wrap items-end gap-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
+      className="space-y-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4"
       onSubmit={(e) => {
         e.preventDefault();
         save.mutate();
       }}
     >
-      <label className="text-sm">
-        <span className="mb-1 block font-medium">Weeks shown</span>
-        <input type="number" min={4} max={26} value={historyWeeks} onChange={(e) => setHistoryWeeks(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
-      </label>
-      <label className="text-sm">
-        <span className="mb-1 block font-medium">Flag as "not seen" after (weeks)</span>
-        <input type="number" min={1} max={12} value={notSeenWeeks} onChange={(e) => setNotSeenWeeks(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
-      </label>
-      <button type="submit" disabled={save.isPending} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">
-        Save
-      </button>
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Weeks shown</span>
+          <input type="number" min={4} max={26} value={historyWeeks} onChange={(e) => setHistoryWeeks(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Flag as "not seen" after (weeks)</span>
+          <input type="number" min={1} max={12} value={notSeenWeeks} onChange={(e) => setNotSeenWeeks(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Reminder lead time (hours)</span>
+          <input type="number" min={1} max={48} value={reminderLeadHours} onChange={(e) => setReminderLeadHours(Number(e.target.value))} className="w-20 rounded-lg border border-stone-300 px-2 py-1.5" />
+        </label>
+      </div>
+
+      <div className="text-sm">
+        <span className="mb-1 block font-medium">Emails sent for your sittings</span>
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+          {SEND_LABELS.map(({ key, label }) => (
+            <label key={key} className="flex cursor-pointer items-center gap-1.5">
+              <input type="checkbox" checked={send[key]} onChange={(e) => setSend((s) => ({ ...s, [key]: e.target.checked }))} />
+              {label}
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-stone-500">
+          An email goes out only when you send that type AND the recipient has it switched on.
+        </p>
+      </div>
+
+      <div className="text-sm">
+        <span className="mb-1 block font-medium">Emails you receive</span>
+        <EmailPrefsPanel onError={onError} />
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button type="submit" disabled={save.isPending} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">
+          Save
+        </button>
+        <span className="text-xs text-stone-500">
+          Home timezone: <span className="font-medium">{prefs.homeTimezone}</span> (email times are worded in it — ask your admin to change it)
+        </span>
+      </div>
     </form>
   );
 }

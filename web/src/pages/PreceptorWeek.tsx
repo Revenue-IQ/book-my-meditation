@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { CalendarPlus, ChevronLeft, ChevronRight, Copy, Lock, Trash2, Users, X } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, Copy, Lock, Megaphone, Plus, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useState } from 'react';
-import { api, fmtDay, fmtTime, localDay, weekStartOf, type PreceptorSlot, type SlotBooking } from '../api';
+import { api, fmtDay, fmtTime, localDay, weekStartOf, type PrebookResult, type PreceptorSlot, type SlotBooking } from '../api';
 
 // "No reply" is only alarming close to the sitting (inside the reminder window);
 // before that, an unconfirmed booking is simply "planned".
@@ -19,6 +19,8 @@ export default function PreceptorWeek() {
   const qc = useQueryClient();
   const [weekOffset, setWeekOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
+  // Set by a day row's ghost "Add slot" button so the form opens with that day picked.
+  const [formDate, setFormDate] = useState<string | null>(null);
   const [detailSlotId, setDetailSlotId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<{ booking: SlotBooking; slot: PreceptorSlot } | null>(null);
   const [error, setError] = useState('');
@@ -54,6 +56,25 @@ export default function PreceptorWeek() {
     },
     onError,
   });
+  // Future slots in the visible week that no announcement email has covered yet.
+  const unannounced = (slots.data ?? []).filter((s) => s.announcedAt === null && new Date(s.startAt).getTime() > Date.now());
+  const publish = useMutation({
+    mutationFn: () =>
+      api<{ announced: number; recipients: number }>('/api/preceptor/publish-week', {
+        method: 'POST',
+        body: JSON.stringify({ weekStart: weekKey, weekEnd: weekEnd.toISOString() }),
+      }),
+    onSuccess: (r) => {
+      setError('');
+      setNotice(
+        r.announced === 0
+          ? 'Nothing new to announce in this week.'
+          : `Announced ${r.announced} slot${r.announced === 1 ? '' : 's'} — one email to each of ${r.recipients} ${r.recipients === 1 ? 'person' : 'people'}.`,
+      );
+      refresh();
+    },
+    onError,
+  });
   const deleteSlot = useMutation({
     mutationFn: (id: string) => api(`/api/preceptor/slots/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
@@ -76,6 +97,18 @@ export default function PreceptorWeek() {
   const days = [...Array(7)].map((_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i));
   const detailSlot = slots.data?.find((s) => s.id === detailSlotId) ?? null;
 
+  // Week-at-a-glance numbers for the summary strip.
+  const allSlots = slots.data ?? [];
+  const totalBookings = allSlots.reduce((n, s) => n + s.bookings.filter((b) => b.status !== 'cancelled').length, 0);
+  const noReplyCount = allSlots.reduce(
+    (n, s) => n + (s.confirmWindowOpen ? s.bookings.filter((b) => b.status === 'booked').length : 0),
+    0,
+  );
+  const nextSlot = allSlots
+    .filter((s) => new Date(s.startAt).getTime() > Date.now())
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
+  const todayKey = localDay();
+
   const onCreated = (slot: { startAt: string }) => {
     setShowForm(false);
     setError('');
@@ -88,11 +121,24 @@ export default function PreceptorWeek() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           className="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800"
-          onClick={() => setShowForm((s) => !s)}
+          onClick={() => {
+            setFormDate(null);
+            setShowForm((s) => !s);
+          }}
         >
           <CalendarPlus className="h-4 w-4" /> Add slot
         </button>
         <div className="flex flex-wrap items-center gap-2">
+          {unannounced.length > 0 && (
+            <button
+              className="flex items-center gap-1.5 rounded-lg bg-violet-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+              onClick={() => publish.mutate()}
+              disabled={publish.isPending}
+              title="One batched email per abhyasi listing the new slots they can book"
+            >
+              <Megaphone className="h-4 w-4" /> Publish week ({unannounced.length} new)
+            </button>
+          )}
           <button
             className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium hover:bg-stone-100"
             onClick={() => copyWeek.mutate()}
@@ -128,17 +174,72 @@ export default function PreceptorWeek() {
         </p>
       )}
 
-      {/* key: a fresh form per week, so the selected day always belongs to the visible week */}
-      {showForm && <AddSlotForm key={weekKey} days={days} onDone={onCreated} onError={onError} />}
+      {slots.data && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">Next sitting</p>
+            {nextSlot ? (
+              <p className="mt-0.5 text-sm font-semibold">
+                {fmtDay(new Date(nextSlot.startAt))} · {fmtTime(nextSlot.startAt)}
+                <span className="font-normal text-stone-500">
+                  {' '}· {nextSlot.bookings.filter((b) => b.status !== 'cancelled').length} booked
+                </span>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-stone-400">None upcoming</p>
+            )}
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">{weekOffset === 0 ? 'This week' : 'Week total'}</p>
+            <p className="mt-0.5 text-sm font-semibold">
+              {allSlots.length} slot{allSlots.length === 1 ? '' : 's'} · {totalBookings} booking{totalBookings === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">Needs attention</p>
+            {noReplyCount > 0 ? (
+              <p className="mt-0.5 text-sm font-semibold text-amber-700">
+                {noReplyCount} no repl{noReplyCount === 1 ? 'y' : 'ies'}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-stone-400">Nothing pending</p>
+            )}
+          </div>
+        </div>
+      )}
 
-      <div className="space-y-4">
+      {/* key: a fresh form per week (and per preselected day), so the selected day always belongs to the visible week */}
+      {showForm && <AddSlotForm key={`${weekKey}:${formDate ?? ''}`} days={days} initialDate={formDate} onDone={onCreated} onError={onError} />}
+
+      <p className="text-xs text-stone-400">Times are shown in your local timezone.</p>
+
+      <div>
+        {weekOffset >= 0 && slots.data?.length === 0 && (
+          <p className="mb-3 rounded-xl border border-dashed border-stone-300 p-4 text-center text-sm text-stone-500">
+            No slots this week yet — add one on a day below, or copy last week's plan.
+          </p>
+        )}
+        {/* Every day renders, slots or not: the week keeps a stable 7-row shape, and an
+            empty day is an invitation (ghost "Add slot" preselects it) rather than a gap. */}
         {days.map((day) => {
-          const daySlots = (slots.data ?? []).filter((s) => new Date(s.startAt).toDateString() === day.toDateString());
-          if (daySlots.length === 0) return null;
+          const dayKey = localDay(day);
+          const isToday = dayKey === todayKey;
+          const isPast = dayKey < todayKey;
+          const daySlots = allSlots
+            .filter((s) => new Date(s.startAt).toDateString() === day.toDateString())
+            .sort((a, b) => a.startAt.localeCompare(b.startAt));
           return (
-            <section key={day.toISOString()}>
-              <h3 className="mb-2 text-sm font-semibold text-stone-500">{fmtDay(day)}</h3>
-              <div className="flex flex-wrap gap-2">
+            <section key={dayKey} className="flex items-center gap-4 border-t border-stone-200 py-2.5 last:border-b">
+              <h3
+                className={clsx(
+                  'w-20 shrink-0 text-sm',
+                  isToday ? 'font-semibold text-emerald-700' : daySlots.length === 0 ? 'text-stone-400' : 'font-medium text-stone-600',
+                )}
+              >
+                {day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                {isToday && <span className="block text-xs font-normal text-emerald-600">today</span>}
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
                 {daySlots.map((slot) => {
                   const active = slot.bookings.filter((b) => b.status !== 'cancelled');
                   const anyNoReply = slot.confirmWindowOpen && active.some((b) => b.status === 'booked');
@@ -146,33 +247,47 @@ export default function PreceptorWeek() {
                     <button
                       key={slot.id}
                       onClick={() => setDetailSlotId(slot.id)}
-                      className="min-w-28 rounded-xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-400 hover:shadow"
+                      className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-left shadow-sm transition hover:border-emerald-400 hover:shadow"
                     >
-                      <div className="flex items-center gap-1.5 font-semibold">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
                         {fmtTime(slot.startAt)}
                         {slot.visibility === 'restricted' && <Lock className="h-3.5 w-3.5 text-violet-600" />}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-stone-500">
-                        <span>{slot.durationMinutes}m</span>
-                        <span className={clsx('flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium',
+                        {slot.announcedAt === null && !slot.ended && (
+                          <span title="Not announced yet — included in Publish week" className="h-2 w-2 rounded-full bg-violet-500" />
+                        )}
+                      </span>
+                      <span className="text-xs text-stone-500">{slot.durationMinutes}m</span>
+                      <span
+                        className={clsx(
+                          'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium',
                           active.length === 0 ? 'bg-stone-100 text-stone-500'
                           : anyNoReply ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-100 text-emerald-800')}>
-                          <Users className="h-3 w-3" /> {active.length}/{slot.capacity}
-                        </span>
-                      </div>
+                          : 'bg-emerald-100 text-emerald-800',
+                        )}
+                      >
+                        <Users className="h-3 w-3" /> {active.length}/{slot.capacity}
+                      </span>
                     </button>
                   );
                 })}
+                {daySlots.length === 0 &&
+                  (isPast ? (
+                    <span className="text-xs text-stone-300">—</span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setFormDate(dayKey);
+                        setShowForm(true);
+                      }}
+                      className="flex items-center gap-1 rounded-lg border border-dashed border-stone-300 px-3 py-1.5 text-xs text-stone-400 transition hover:border-emerald-400 hover:text-emerald-700"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add slot
+                    </button>
+                  ))}
               </div>
             </section>
           );
         })}
-        {slots.data?.length === 0 && (
-          <p className="rounded-xl border border-dashed border-stone-300 p-8 text-center text-stone-500">
-            No slots this week yet. Add one, or copy last week's plan.
-          </p>
-        )}
       </div>
 
       {detailSlot && !cancelTarget && (
@@ -214,6 +329,17 @@ export default function PreceptorWeek() {
                 ))}
               </ul>
             </div>
+
+            {!detailSlot.ended && (
+              <PrebookSection
+                slot={detailSlot}
+                onDone={(msg) => {
+                  setNotice(msg);
+                  refresh();
+                }}
+                onError={onError}
+              />
+            )}
 
             <div className="mt-5 flex items-center justify-end border-t border-stone-100 pt-3">
               {detailSlot.ended && detailSlot.bookings.some((b) => b.status !== 'cancelled') ? (
@@ -266,10 +392,13 @@ export default function PreceptorWeek() {
 
 function AddSlotForm({
   days,
+  initialDate,
   onDone,
   onError,
 }: {
   days: Date[];
+  /** Preselected day chip (YYYY-MM-DD), e.g. when the form opens from a specific day. */
+  initialDate?: string | null;
   onDone: (slot: { startAt: string }) => void;
   onError: (e: Error) => void;
 }) {
@@ -285,7 +414,8 @@ function AddSlotForm({
     return { key, label: fmtDay(d), past: key < todayKey };
   });
   const firstUsable = dayChips.find((d) => !d.past);
-  const [date, setDate] = useState(firstUsable?.key ?? '');
+  const preselected = initialDate && dayChips.some((d) => d.key === initialDate && !d.past) ? initialDate : null;
+  const [date, setDate] = useState(preselected ?? firstUsable?.key ?? '');
   const [hour, setHour] = useState(((firstStart.getHours() + 11) % 12) + 1);
   const [minute, setMinute] = useState(firstStart.getMinutes());
   const [ampm, setAmpm] = useState<'AM' | 'PM'>(firstStart.getHours() < 12 ? 'AM' : 'PM');
@@ -412,5 +542,104 @@ function AddSlotForm({
         Create slot
       </button>
     </form>
+  );
+}
+
+/**
+ * Pre-book this slot for chosen regulars (Phase 5). Each person gets the normal
+ * booking-confirmed email and can cancel like any other booking. Per-person failures
+ * (already booked, slot full mid-way, not visible to them) are reported, not fatal.
+ */
+function PrebookSection({
+  slot,
+  onDone,
+  onError,
+}: {
+  slot: PreceptorSlot;
+  onDone: (msg: string) => void;
+  onError: (e: Error) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const abhyasis = useQuery({
+    queryKey: ['linkedAbhyasis'],
+    queryFn: () => api<{ id: string; name: string }[]>('/api/preceptor/abhyasis'),
+    enabled: open,
+  });
+
+  const activeIds = new Set(slot.bookings.filter((b) => b.status !== 'cancelled').map((b) => b.abhyasiId));
+  const spotsLeft = slot.capacity - activeIds.size;
+  // Restricted slots can only be pre-booked for the people who can see them.
+  const eligible = (abhyasis.data ?? []).filter(
+    (a) => !activeIds.has(a.id) && (slot.visibility === 'all' || slot.visibleTo.some((v) => v.id === a.id)),
+  );
+
+  const prebook = useMutation({
+    mutationFn: () =>
+      api<PrebookResult[]>(`/api/preceptor/slots/${slot.id}/prebook`, { method: 'POST', body: JSON.stringify({ abhyasiIds: selected }) }),
+    onSuccess: (results) => {
+      const ok = results.filter((r) => r.bookingId).length;
+      const failed = results.filter((r) => r.error);
+      setSelected([]);
+      setOpen(false);
+      const names = new Map((abhyasis.data ?? []).map((a) => [a.id, a.name]));
+      onDone(
+        `Pre-booked ${ok} ${ok === 1 ? 'person' : 'people'}.` +
+          (failed.length ? ` Not booked: ${failed.map((f) => `${names.get(f.abhyasiId) ?? 'someone'} (${f.error})`).join('; ')}` : ''),
+      );
+    },
+    onError,
+  });
+
+  if (spotsLeft <= 0) return null;
+  return (
+    <div className="mt-4">
+      {!open ? (
+        <button className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline" onClick={() => setOpen(true)}>
+          <UserPlus className="h-4 w-4" /> Pre-book for a regular
+        </button>
+      ) : (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+          <p className="mb-2 text-sm font-medium">Pre-book this slot for ({spotsLeft} spot{spotsLeft === 1 ? '' : 's'} left):</p>
+          <div className="flex flex-wrap gap-2">
+            {eligible.map((a) => (
+              <label
+                key={a.id}
+                className={clsx(
+                  'cursor-pointer rounded-full border px-3 py-1 text-sm',
+                  selected.includes(a.id) ? 'border-emerald-500 bg-emerald-100 font-medium text-emerald-900' : 'border-stone-300 bg-white',
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="hidden"
+                  checked={selected.includes(a.id)}
+                  onChange={(e) => setSelected((s) => (e.target.checked ? [...s, a.id] : s.filter((x) => x !== a.id)))}
+                />
+                {a.name}
+              </label>
+            ))}
+            {abhyasis.isLoading && <p className="text-sm text-stone-400">Loading…</p>}
+            {abhyasis.isSuccess && eligible.length === 0 && (
+              <p className="text-sm text-stone-500">Everyone who can see this slot is already booked.</p>
+            )}
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+              disabled={selected.length === 0 || selected.length > spotsLeft || prebook.isPending}
+              onClick={() => prebook.mutate()}
+            >
+              Pre-book{selected.length > 0 ? ` (${selected.length})` : ''}
+            </button>
+            {selected.length > spotsLeft && <span className="text-xs text-amber-700">Only {spotsLeft} spot{spotsLeft === 1 ? '' : 's'} left.</span>}
+            <button className="text-sm text-stone-500 hover:underline" onClick={() => setOpen(false)}>
+              Never mind
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-stone-500">They get the normal booking email and can cancel any time.</p>
+        </div>
+      )}
+    </div>
   );
 }

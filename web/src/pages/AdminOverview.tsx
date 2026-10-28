@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, RotateCcw, Trash2, UserPlus, UserX } from 'lucide-react';
 import { useState } from 'react';
-import { CLERK_ENABLED, api, type InviteResult } from '../api';
+import { CLERK_ENABLED, api, detectTimeZone, timeZoneChoices, tzLabel, type InviteResult } from '../api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EditUserModal, { type EditableUser } from '../components/EditUserModal';
 
-type AdminUser = EditableUser & { name: string; deactivatedAt: string | null };
+type AdminUser = EditableUser & { name: string; deactivatedAt: string | null; homeTimezone?: string | null };
 type Overview = {
   preceptors: (AdminUser & { abhyasis: AdminUser[] })[];
   unlinkedAbhyasis: AdminUser[];
@@ -17,14 +17,18 @@ export default function AdminOverview() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  // The preceptor's HOME timezone (Phase 5): emails word sitting times in it. Pre-filled
+  // with the browser's zone so the common case is one glance, not a 400-entry search.
+  const [homeTimezone, setHomeTimezone] = useState(detectTimeZone());
   const [note, setNote] = useState('');
-  const [edit, setEdit] = useState<AdminUser | null>(null);
+  const [edit, setEdit] = useState<{ user: AdminUser; role: 'preceptor' | 'abhyasi' } | null>(null);
   const [confirm, setConfirm] = useState<{ user: AdminUser; kind: 'deactivate' | 'delete' ; role: 'preceptor' | 'abhyasi' } | null>(null);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['adminOverview'] });
 
   const create = useMutation({
-    mutationFn: () => api<InviteResult>('/api/admin/preceptors', { method: 'POST', body: JSON.stringify({ firstName, lastName, email }) }),
+    mutationFn: () =>
+      api<InviteResult>('/api/admin/preceptors', { method: 'POST', body: JSON.stringify({ firstName, lastName, email, homeTimezone }) }),
     onSuccess: (r) => {
       setNote(
         r.invited
@@ -70,7 +74,7 @@ export default function AdminOverview() {
 
   const userActions = (u: AdminUser, role: 'preceptor' | 'abhyasi') => (
     <div className="flex gap-1">
-      <button title="Edit name or email" className="rounded-lg p-1.5 hover:bg-stone-100" onClick={() => setEdit(u)}>
+      <button title="Edit name or email" className="rounded-lg p-1.5 hover:bg-stone-100" onClick={() => setEdit({ user: u, role })}>
         <Pencil className="h-4 w-4" />
       </button>
       {role === 'preceptor' &&
@@ -121,6 +125,14 @@ export default function AdminOverview() {
           <span className="mb-1 block font-medium">Email</span>
           <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-60 rounded-lg border border-stone-300 bg-white px-2 py-1.5" />
         </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium">Home timezone</span>
+          <select value={homeTimezone} onChange={(e) => setHomeTimezone(e.target.value)} className="h-[38px] w-60 rounded-lg border border-stone-300 bg-white px-2 py-1.5">
+            {timeZoneChoices(detectTimeZone()).map((tz) => (
+              <option key={tz} value={tz}>{tzLabel(tz)}</option>
+            ))}
+          </select>
+        </label>
         <button
           type="submit"
           disabled={create.isPending}
@@ -145,6 +157,7 @@ export default function AdminOverview() {
           <div className="flex items-start justify-between gap-3">
             <div className="font-semibold">
               {p.name} <span className="ml-1 text-sm font-normal text-stone-500">{p.email}</span>
+              {p.homeTimezone && <span className="ml-2 text-xs font-normal text-stone-400">{p.homeTimezone}</span>}
               {p.deactivatedAt && (
                 <span className="ml-2 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-600">deactivated</span>
               )}
@@ -211,8 +224,9 @@ export default function AdminOverview() {
 
       {edit && (
         <EditUserModal
-          user={edit}
-          endpoint={`/api/admin/users/${edit.id}`}
+          user={edit.user}
+          endpoint={`/api/admin/users/${edit.user.id}`}
+          homeTimezone={edit.role === 'preceptor' ? edit.user.homeTimezone ?? 'Asia/Kolkata' : undefined}
           onSaved={() => {
             setEdit(null);
             refresh();

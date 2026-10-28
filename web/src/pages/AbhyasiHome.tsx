@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { CheckCircle2, Users, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, Mail, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtDay, fmtTime, localDay, type CheckinPage, type MyBooking, type VisibleSlot } from '../api';
+import EmailPrefsPanel from '../components/EmailPrefsPanel';
 
 export default function AbhyasiHome() {
   const qc = useQueryClient();
   const [error, setError] = useState('');
   const [detailSlotId, setDetailSlotId] = useState<string | null>(null);
+  const [showEmailPrefs, setShowEmailPrefs] = useState(false);
 
   const slots = useQuery({ queryKey: ['visibleSlots'], queryFn: () => api<VisibleSlot[]>('/api/abhyasi/slots') });
   const mine = useQuery({ queryKey: ['myBookings'], queryFn: () => api<MyBooking[]>('/api/abhyasi/bookings') });
@@ -48,6 +50,23 @@ export default function AbhyasiHome() {
   const detailSlot = slots.data?.find((s) => s.id === detailSlotId) ?? null;
   const spotsLeft = detailSlot ? detailSlot.capacity - detailSlot.activeBookings : 0;
 
+  // Page-at-a-glance numbers for the summary strip (same pattern as the preceptor week).
+  const myUpcoming = mine.data ?? [];
+  const nextBooking = [...myUpcoming].sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
+  const confirmNow = myUpcoming.filter((b) => b.status === 'booked' && b.confirmWindowOpen).length;
+  const openSlots = (slots.data ?? []).filter((s) => !s.myBookingId && s.capacity - s.activeBookings > 0).length;
+
+  // The next 7 days always render (stable shape, like the preceptor week view); any
+  // published slots further out get their own rows appended below.
+  const now = new Date();
+  const next7 = [...Array(7)].map((_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i));
+  const next7Keys = new Set(next7.map((d) => d.toDateString()));
+  const laterDays = [...byDay.keys()]
+    .filter((k) => !next7Keys.has(k))
+    .map((k) => new Date(k))
+    .sort((a, b) => a.getTime() - b.getTime());
+  const dayList = [...next7, ...laterDays];
+
   return (
     <div className="space-y-8">
       {checkin.data && !checkin.data.today && (
@@ -65,6 +84,42 @@ export default function AbhyasiHome() {
         <p className="cursor-pointer rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" onClick={() => setError('')}>
           {error}
         </p>
+      )}
+
+      {mine.data && slots.data && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">Next sitting</p>
+            {nextBooking ? (
+              <p className="mt-0.5 text-sm font-semibold">
+                {fmtDay(new Date(nextBooking.startAt))} · {fmtTime(nextBooking.startAt)}
+                <span className="font-normal text-stone-500"> · with {nextBooking.preceptorName}</span>
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-stone-400">Nothing booked</p>
+            )}
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">Open slots</p>
+            {openSlots > 0 ? (
+              <p className="mt-0.5 text-sm font-semibold">
+                {openSlots} you can book
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-stone-400">None right now</p>
+            )}
+          </div>
+          <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs text-stone-400">Needs action</p>
+            {confirmNow > 0 ? (
+              <p className="mt-0.5 text-sm font-semibold text-amber-700">
+                Confirm {confirmNow} sitting{confirmNow === 1 ? '' : 's'} below
+              </p>
+            ) : (
+              <p className="mt-0.5 text-sm text-stone-400">Nothing pending</p>
+            )}
+          </div>
+        </div>
       )}
 
       <section>
@@ -105,51 +160,83 @@ export default function AbhyasiHome() {
 
       <section>
         <h2 className="mb-3 text-base font-semibold">Available slots</h2>
-        {slots.data?.length === 0 && <p className="text-sm text-stone-500">No upcoming slots from your preceptors right now.</p>}
-        <div className="space-y-4">
-          {[...byDay.entries()].map(([day, daySlots]) => (
-            <div key={day}>
-              <h3 className="mb-2 text-sm font-semibold text-stone-500">{fmtDay(new Date(day))}</h3>
-              <div className="flex flex-wrap gap-2">
-                {daySlots.map((s) => {
-                  const left = s.capacity - s.activeBookings;
-                  const full = !s.myBookingId && left <= 0;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => setDetailSlotId(s.id)}
-                      className={clsx(
-                        'min-w-28 rounded-xl border p-3 text-left shadow-sm transition',
-                        s.myBookingId
-                          ? 'border-emerald-300 bg-emerald-50 hover:border-emerald-400'
-                          : full
-                            ? 'border-stone-200 bg-stone-100 text-stone-400'
-                            : 'border-stone-200 bg-white hover:border-emerald-400 hover:shadow',
-                      )}
-                    >
-                      <div className="font-semibold">{fmtTime(s.startAt)}</div>
-                      <div className="mt-1 text-xs text-stone-500">{s.preceptorName}</div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs">
+        {slots.data?.length === 0 && (
+          <p className="mb-3 text-sm text-stone-500">No upcoming slots from your preceptors right now.</p>
+        )}
+        {/* Every day of the next week renders, slots or not: the list keeps a stable
+            7-row shape instead of collapsing to a couple of floating sections. */}
+        <div>
+          {dayList.map((day) => {
+            const key = day.toDateString();
+            const isToday = localDay(day) === today;
+            const daySlots = (byDay.get(key) ?? []).sort((a, b) => a.startAt.localeCompare(b.startAt));
+            return (
+              <div key={key} className="flex items-center gap-4 border-t border-stone-200 py-2.5 last:border-b">
+                <h3
+                  className={clsx(
+                    'w-20 shrink-0 text-sm',
+                    isToday ? 'font-semibold text-emerald-700' : daySlots.length === 0 ? 'text-stone-400' : 'font-medium text-stone-600',
+                  )}
+                >
+                  {day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                  {isToday && <span className="block text-xs font-normal text-emerald-600">today</span>}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {daySlots.map((s) => {
+                    const left = s.capacity - s.activeBookings;
+                    const full = !s.myBookingId && left <= 0;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setDetailSlotId(s.id)}
+                        className={clsx(
+                          'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-left shadow-sm transition',
+                          s.myBookingId
+                            ? 'border-emerald-300 bg-emerald-50 hover:border-emerald-400'
+                            : full
+                              ? 'border-stone-200 bg-stone-100 text-stone-400'
+                              : 'border-stone-200 bg-white hover:border-emerald-400 hover:shadow',
+                        )}
+                      >
+                        <span className="text-sm font-semibold">{fmtTime(s.startAt)}</span>
+                        <span className="text-xs text-stone-500">{s.preceptorName}</span>
                         {s.myBookingId ? (
-                          <span className="font-medium text-emerald-700">Booked ✓</span>
+                          <span className="text-xs font-medium text-emerald-700">Booked ✓</span>
                         ) : full ? (
-                          <span>Full</span>
+                          <span className="text-xs">Full</span>
                         ) : (
-                          <span className="flex items-center gap-0.5 text-stone-500">
+                          <span className="flex items-center gap-0.5 text-xs text-stone-500">
                             <Users className="h-3 w-3" /> {left}/{s.capacity} left
                           </span>
                         )}
                         {s.visibility === 'restricted' && (
-                          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 font-medium text-violet-800">for you</span>
+                          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-800">for you</span>
                         )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                  {daySlots.length === 0 && <span className="text-xs text-stone-300">—</span>}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+        <p className="mt-3 text-xs text-stone-400">Times are shown in your local timezone.</p>
+      </section>
+
+      <section>
+        <button
+          className="flex items-center gap-1.5 text-sm font-medium text-stone-600 hover:text-stone-900"
+          onClick={() => setShowEmailPrefs((s) => !s)}
+        >
+          {showEmailPrefs ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          <Mail className="h-4 w-4" /> Email preferences
+        </button>
+        {showEmailPrefs && (
+          <div className="mt-2 rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+            <EmailPrefsPanel onError={(e) => setError(e.message)} />
+          </div>
+        )}
       </section>
 
       {detailSlot && (

@@ -73,7 +73,9 @@ Rules:
 ## Timezones
 
 - All times are stored in UTC.
-- A preceptor enters slot times in their own timezone; every user sees times in their own timezone.
+- In the **app**, a preceptor enters slot times in their own (browser) timezone and every user sees times in their own (browser) timezone; the slot and booking pages carry a small "times are shown in your local timezone" note.
+- Every preceptor has a **home timezone** (IANA name), a required input when the admin creates the preceptor and editable by the admin later. **Emails** word all sitting times in the slot-preceptor's home timezone with the zone label printed (e.g. "7:00 AM GMT+5:30"); reminders lead with relative time ("in about 8 hours"). Rationale: a preceptor's circle lives in one timezone, and emails are frozen text that can't adapt to the reader. Changing the home timezone never moves existing sittings — only how times are worded.
+- Server-side calendar math (copy last week's plan) uses the home timezone, so it works on cloud deployments where the server runs in UTC.
 
 ## My Abhyasis — Regularity Follow-up (Phase 2)
 

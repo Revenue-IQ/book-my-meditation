@@ -14,6 +14,7 @@ import {
   users,
 } from './db/schema.js';
 import { AppError } from './lib/errors.js';
+import { isValidTimeZone } from './lib/tz.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -85,9 +86,15 @@ export type InviteResult = {
   /** A Clerk invitation email went out (always false in local mode). */ invited: boolean;
 };
 
-/** Admin creates a preceptor account. Re-inviting a preceptor who hasn't signed in yet resends the email. */
+/**
+ * Admin creates a preceptor account with their HOME timezone (Phase 5: emails word
+ * sitting times in it). Re-inviting a preceptor who hasn't signed in yet resends the email.
+ */
 export async function createPreceptor(actorId: string, body: unknown): Promise<InviteResult> {
   const { firstName, lastName, email } = parseInvite(body);
+  const { homeTimezone } = (body ?? {}) as { homeTimezone?: unknown };
+  if (homeTimezone !== undefined && !isValidTimeZone(homeTimezone))
+    throw new AppError('homeTimezone must be an IANA timezone name, e.g. Asia/Kolkata');
   const existing = await findByEmail(email);
   if (existing) {
     if (existing.role === 'preceptor' && !existing.clerkUserId) {
@@ -95,8 +102,27 @@ export async function createPreceptor(actorId: string, body: unknown): Promise<I
     }
     throw new AppError(`${email} already has an account (${existing.role})`);
   }
-  await db.insert(users).values({ firstName, lastName, email, role: 'preceptor', insertedBy: actorId });
+  const [user] = await db.insert(users).values({ firstName, lastName, email, role: 'preceptor', insertedBy: actorId }).returning();
+  // Create the pref row now so the timezone exists before any slot or email does.
+  await db
+    .insert(preceptorPref)
+    .values({ preceptorId: user.id, ...(isValidTimeZone(homeTimezone) ? { homeTimezone } : {}), insertedBy: actorId });
   return { created: true, invited: await sendInvitation(email) };
+}
+
+/** Admin changes a preceptor's home timezone. Slots are UTC instants — nothing moves, only wording. */
+export async function setHomeTimezone(actorId: string, targetId: string, homeTimezone: unknown) {
+  if (!isValidTimeZone(homeTimezone)) throw new AppError('homeTimezone must be an IANA timezone name, e.g. Asia/Kolkata');
+  const [target] = await db.select().from(users).where(eq(users.id, targetId));
+  if (!target) throw new AppError('User not found', 404);
+  if (target.role !== 'preceptor') throw new AppError('Only preceptors have a home timezone');
+  await db
+    .insert(preceptorPref)
+    .values({ preceptorId: targetId, homeTimezone, insertedBy: actorId })
+    .onConflictDoUpdate({
+      target: preceptorPref.preceptorId,
+      set: { homeTimezone, updatedBy: actorId, updateTime: new Date() },
+    });
 }
 
 export type AbhyasiInviteResult = InviteResult & {

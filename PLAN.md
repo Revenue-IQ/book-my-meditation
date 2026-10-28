@@ -33,7 +33,7 @@ Goal: a good, complete app. See REQUIREMENTS.md for the full spec, TECH-STACK.md
 - Nudge on the Sittings page until today's mood is recorded
 - Stats maths in `api/src/lib/mood-stats.ts` (unit-tested); seed generates 30 days of correlated check-ins for every abhyasi
 
-## Phase 3 — KaneCLI test suite
+## Phase 3 — KaneCLI test suite (done)
 
 - Ingest REQUIREMENTS.md → generate use-cases and acceptance criteria → design runnable test suite
 - Run the suite against the local app (no-login mode)
@@ -49,14 +49,19 @@ Goal: a good, complete app. See REQUIREMENTS.md for the full spec, TECH-STACK.md
 - First admin bootstraps via `ADMIN_EMAIL`; unknown sign-ins are refused; boot seed now runs only in local mode
 - See docs/features/accounts-and-invitations.md
 
-## Phase 5 — Emails, reminders, attendance
+## Phase 5 — User management, emails, reminders (done)
 
-- Resend integration; email types: announcement, booking confirmed, booking cancelled, reminder
-- Publish-week batched announcement email; single-slot announcements
-- Email settings: per-type send toggles (preceptor) and receive toggles (both roles), send-gate rule, all default ON
-- Schema work for this phase: create **abhyasi_pref** table (email receive toggles — table deliberately not created in Phase 1, see schema decisions); extend **preceptor_pref** with email send/receive toggles (reminder_lead_hours already there from Phase 1); add **timezone** column to users (needed only to word email times in the reader's local time)
+Built in two parts:
+
+**User management** (see docs/features/user-management.md): first/last name split, preceptor edit/unlink, admin edit/deactivate/hard-delete, Clerk-or-error email changes.
+
+**Emails & reminders** (see docs/features/emails-and-reminders.md):
+- Resend integration — built domain-free: keyless local dev logs emails, cloud runs test mode (`onboarding@resend.dev` + redirect-to-owner inbox) until the domain is verified; the switch is env-only
+- Email types: announcement, booking confirmed, booking cancelled, reminder; send-gate rule (preceptor send toggle AND recipient receive toggle), all default ON
+- Publish-week batched announcement email; a slot added to an already-published week announces itself
+- Schema: **email_pref** table (receive toggles, every role — the planned abhyasi_pref, widened since preceptors receive emails too); send toggles + **home_timezone** on preceptor_pref. The planned users.timezone was dropped: emails are worded in the preceptor's home timezone (admin-set at creation), the app stays browser-local
 - Pre-booking for regulars (with normal booking email)
-- Reminder emails with one-click "I'm coming" / "Cancel my booking" (no login); preceptor-configured lead time, default 8h (cron job returns here)
+- Reminder emails with one-click "I'm coming" / "Cancel my booking" (no login, per-booking token); preceptor-configured lead time, default 8h; in-process minute sweep with catch-up on boot
 
 ## Phase 6 — Build & deployment (GitLab CI/CD)
 

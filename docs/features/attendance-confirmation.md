@@ -1,6 +1,6 @@
 # Attendance Confirmation ("I'm coming")
 
-Status: built in Phase 1 (in-app; email buttons come in Phase 5) · Last updated: 2026-10-24
+Status: built in Phase 1 (in-app) + Phase 5 (email one-click buttons) · Last updated: 2026-10-27
 
 ## What it does
 
@@ -25,4 +25,4 @@ Replaces the preceptor's morning "are you still coming?" check-in. Close to the 
 
 ## Future
 
-- Phase 5: reminder email at the configured lead time with one-click "I'm coming" / "Cancel my booking" (no login needed); cron job returns for scheduling these.
+- ~~Phase 5: reminder email at the configured lead time with one-click "I'm coming" / "Cancel my booking" (no login needed)~~ — built; see [Emails, reminders & pre-booking](emails-and-reminders.md). The reminder email and the in-app confirm window share the same lead-time setting, as planned.
