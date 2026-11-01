@@ -165,9 +165,16 @@ app.post('/api/preceptor/slots', async (c) => {
     capacity: body.capacity ?? 1,
     visibleTo: body.visibleTo ?? 'all',
   });
+  // Optional pre-booking in the same request (the Add Slot form). It must land BEFORE the
+  // auto-announce decision so a fully pre-booked slot is never announced as bookable.
+  let prebook: Awaited<ReturnType<typeof prebookSlot>> | undefined;
+  if (Array.isArray(body.prebookAbhyasiIds) && body.prebookAbhyasiIds.length > 0) {
+    prebook = await prebookSlot(slot.id, c.get('user').id, body.prebookAbhyasiIds);
+    for (const r of prebook) if (r.bookingId) fireAndForget(notifyBookingCreated(r.bookingId, { prebooked: true }));
+  }
   // In an already-published week, a late slot announces itself; otherwise it waits for Publish.
   fireAndForget(autoAnnounceIfPublished(slot));
-  return c.json(slot, 201);
+  return c.json({ ...slot, prebook }, 201);
 });
 
 app.delete('/api/preceptor/slots/:id', async (c) => {

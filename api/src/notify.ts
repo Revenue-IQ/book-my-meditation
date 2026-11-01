@@ -147,10 +147,22 @@ export async function announceSlots(preceptorId: string, slotRows: SlotRow[]): P
   // Who may see which slot: everyone linked for 'all', the chosen few for 'restricted'.
   const linked = await listLinkedAbhyasis(preceptorId);
   const visRows = await db.select().from(slotVisibility).where(inArray(slotVisibility.slotId, marked.map((s) => s.id)));
+  // An announcement says "slots you can book", so a slot already at capacity (e.g. fully
+  // pre-booked at creation) is left out, and so is, per recipient, a slot they already
+  // hold a booking on — they got the booking email instead.
+  const activeBookings = await db
+    .select({ slotId: bookings.slotId, abhyasiId: bookings.abhyasiId })
+    .from(bookings)
+    .where(and(inArray(bookings.slotId, marked.map((s) => s.id)), ne(bookings.status, 'cancelled')));
+  const activeCount = new Map<string, number>();
+  for (const b of activeBookings) activeCount.set(b.slotId, (activeCount.get(b.slotId) ?? 0) + 1);
+  const bookable = marked.filter((s) => (activeCount.get(s.id) ?? 0) < s.capacity);
+
   const perAbhyasi = new Map<string, SlotRow[]>();
   for (const a of linked) {
-    const mine = marked
+    const mine = bookable
       .filter((s) => s.visibility === 'all' || visRows.some((v) => v.slotId === s.id && v.abhyasiId === a.id))
+      .filter((s) => !activeBookings.some((b) => b.slotId === s.id && b.abhyasiId === a.id))
       .sort((x, y) => x.startAt.getTime() - y.startAt.getTime());
     if (mine.length) perAbhyasi.set(a.id, mine);
   }

@@ -1,6 +1,6 @@
 # Branding (logo & favicon)
 
-Status: built · Last updated: 2026-10-26
+Status: built · Last updated: 2026-10-27
 
 ## What it does
 
@@ -11,6 +11,8 @@ The app uses the official Heartfulness app icon (purple meditation figure on cre
 - **App header**: 72px rounded logo next to the "Heartfulness Sittings" title
   ([web/src/App.tsx](../../web/src/App.tsx), `Shell`). Sized by iteration (32 → 48 → 96 →
   72px): 48px wasn't readable, 96px was too dominant, 72px settled as the right balance.
+  On mobile (<768px) it drops to 44px so the slimmed-down header fits — see
+  [navigation](navigation.md).
 - **Sign-in / welcome screen** (Clerk mode): 96px rounded logo above the sign-in card
   ([web/src/ClerkGate.tsx](../../web/src/ClerkGate.tsx), `Welcome`).
 

@@ -15,6 +15,7 @@ Feature docs record what each capability does, how it works, and **why** it is t
 | [Community mood](features/community-mood.md) | 2b | anonymous aggregate across all preceptors, every role, hidden below 5 people, same graph with per-day suppression |
 | [User management](features/user-management.md) | 5 | first/last name split; preceptor edits + unlinks abhyasis; admin edits, deactivates preceptors, hard-deletes anyone; Clerk-or-error email changes |
 | [Emails, reminders & pre-booking](features/emails-and-reminders.md) | 5 | four Resend email types with send/receive toggles, publish-week batching, pre-booking regulars, one-click no-login confirm/cancel, preceptor home timezone |
+| [Navigation](features/navigation.md) | 5 | same icon + short label per page everywhere: desktop header pills, mobile bottom tab bar replacing the overflowing top nav; 768px cutover |
 
 ## Architecture
 

@@ -109,10 +109,10 @@ export default function PreceptorWeek() {
     .sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
   const todayKey = localDay();
 
-  const onCreated = (slot: { startAt: string }) => {
+  const onCreated = (slot: { startAt: string }, prebookSummary?: string) => {
     setShowForm(false);
     setError('');
-    setNotice(`Slot created: ${fmtDay(new Date(slot.startAt))} · ${fmtTime(slot.startAt)}`);
+    setNotice(`Slot created: ${fmtDay(new Date(slot.startAt))} · ${fmtTime(slot.startAt)}${prebookSummary ? ` — ${prebookSummary}` : ''}`);
     refresh();
   };
 
@@ -399,7 +399,7 @@ function AddSlotForm({
   days: Date[];
   /** Preselected day chip (YYYY-MM-DD), e.g. when the form opens from a specific day. */
   initialDate?: string | null;
-  onDone: (slot: { startAt: string }) => void;
+  onDone: (slot: { startAt: string }, prebookSummary?: string) => void;
   onError: (e: Error) => void;
 }) {
   // Default to the next quarter-hour, not a fixed 7:00 AM: a default that is already in
@@ -423,11 +423,18 @@ function AddSlotForm({
   const [capacity, setCapacity] = useState(1);
   const [restricted, setRestricted] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [prebookIds, setPrebookIds] = useState<string[]>([]);
 
   const abhyasis = useQuery({
     queryKey: ['linkedAbhyasis'],
     queryFn: () => api<{ id: string; name: string }[]>('/api/preceptor/abhyasis'),
   });
+
+  // On a restricted slot only the chosen people can be pre-booked; selections that fall out
+  // of eligibility (visibility unticked, restriction toggled) are dropped rather than sent.
+  const prebookEligible = (abhyasis.data ?? []).filter((a) => !restricted || selected.includes(a.id));
+  const prebookEffective = prebookIds.filter((id) => prebookEligible.some((a) => a.id === id));
+  const names = new Map((abhyasis.data ?? []).map((a) => [a.id, a.name]));
 
   const create = useMutation({
     mutationFn: () => {
@@ -436,17 +443,27 @@ function AddSlotForm({
       const startAt = new Date(y, m - 1, d, h24, minute); // local time → UTC on the wire
       if (startAt.getTime() <= Date.now())
         throw new Error('That time has already passed today — pick a later time or another day.');
-      return api<{ startAt: string }>('/api/preceptor/slots', {
+      return api<{ startAt: string; prebook?: PrebookResult[] }>('/api/preceptor/slots', {
         method: 'POST',
         body: JSON.stringify({
           startAt: startAt.toISOString(),
           durationMinutes: duration,
           capacity,
           visibleTo: restricted ? selected : 'all',
+          ...(prebookEffective.length ? { prebookAbhyasiIds: prebookEffective } : {}),
         }),
       });
     },
-    onSuccess: onDone,
+    onSuccess: (slot) => {
+      const ok = (slot.prebook ?? []).filter((r) => r.bookingId).length;
+      const failed = (slot.prebook ?? []).filter((r) => r.error);
+      const summary = slot.prebook
+        ? `pre-booked ${ok} ${ok === 1 ? 'person' : 'people'}${
+            failed.length ? `; not booked: ${failed.map((f) => `${names.get(f.abhyasiId) ?? 'someone'} (${f.error})`).join('; ')}` : ''
+          }`
+        : undefined;
+      onDone(slot, summary);
+    },
     onError,
   });
 
@@ -534,12 +551,48 @@ function AddSlotForm({
         )}
       </div>
 
+      <div className="text-sm">
+        <span className="mb-1 block font-medium">
+          Pre-book for <span className="font-normal text-stone-500">(optional — regulars who always take this slot)</span>
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {prebookEligible.map((a) => (
+            <label
+              key={a.id}
+              className={clsx(
+                'cursor-pointer rounded-full border px-3 py-1',
+                prebookEffective.includes(a.id) ? 'border-emerald-500 bg-emerald-100 font-medium text-emerald-900' : 'border-stone-300 bg-white',
+              )}
+            >
+              <input
+                type="checkbox"
+                className="hidden"
+                checked={prebookEffective.includes(a.id)}
+                onChange={(e) => setPrebookIds((s) => (e.target.checked ? [...s, a.id] : s.filter((x) => x !== a.id)))}
+              />
+              {a.name}
+            </label>
+          ))}
+          {restricted && prebookEligible.length === 0 && (
+            <p className="text-stone-500">Pick who can see this slot first — only they can be pre-booked.</p>
+          )}
+        </div>
+        {prebookEffective.length > 0 && (
+          <p className="mt-1 text-xs text-stone-500">They get the normal booking email and can cancel any time.</p>
+        )}
+        {prebookEffective.length > capacity && (
+          <p className="mt-1 text-xs text-amber-700">
+            That's more people than the capacity of {capacity} — raise the capacity or pick fewer.
+          </p>
+        )}
+      </div>
+
       <button
         type="submit"
-        disabled={create.isPending || !date}
+        disabled={create.isPending || !date || prebookEffective.length > capacity}
         className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:bg-stone-300"
       >
-        Create slot
+        Create slot{prebookEffective.length > 0 ? ` & pre-book ${prebookEffective.length}` : ''}
       </button>
     </form>
   );
